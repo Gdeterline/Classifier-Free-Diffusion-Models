@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.positional_encoding import PositionalEncoding
+from src.embeddings import PositionalEncoding
 from src.blocks import ResnetBlock, AttentionBlock, ResnetAndAttention, DownSample, UpSample
 
 # ----------------------------------------- UNet Model (sourced from tsmatz's implementation) ----------------------------------------- #
