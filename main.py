@@ -1,5 +1,5 @@
 import torch
-from utils import dataset_loader, display_samples
+from src.utils import dataset_loader, display_samples
 
 
 def main():
@@ -10,7 +10,6 @@ def main():
     
     # Prompt the user to choose a dataset
     dataset_name = input("Please choose a dataset to load (MNIST, CIFAR10, CIFAR100, defaults to MNIST): ")
-    
     
     # Use the provided dataset name or default to MNIST
     if dataset_name.strip() == "":
@@ -44,6 +43,17 @@ def main():
         main()
         
     # Prompt the user to display samples from the dataset
+    display_samples_input = input("Do you want to display samples from the dataset? (y/n, default is n): ")
+    if display_samples_input.strip().lower() == 'y':
+        
+        num_samples_input = input("How many samples do you want to display? (default is 5): ")
+        
+        if num_samples_input.strip() == "":
+            num_samples = 5
+        else:            
+            num_samples = int(num_samples_input)
+            
+        display_samples(data_loader, num_samples=num_samples)
         
     
 if __name__ == "__main__":

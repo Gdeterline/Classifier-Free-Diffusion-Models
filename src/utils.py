@@ -1,6 +1,8 @@
 import torch
 from torchvision import datasets, transforms
 
+# --------------------------- Helper functions --------------------------- #
+
 def dataset_loader(dataset_name: str = "MNIST", batch_size: int = 128) -> torch.utils.data.DataLoader:
     """
     Check if the dataset is available in torchvision.datasets, if not, raise an error. 
@@ -34,7 +36,6 @@ def dataset_loader(dataset_name: str = "MNIST", batch_size: int = 128) -> torch.
             train=True,
             download=True,
             transform=transforms.Compose([
-            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ]))
     elif dataset_name == "CIFAR10":
@@ -85,11 +86,27 @@ def display_samples(loader: torch.utils.data.DataLoader, num_samples: int = 5) -
     import matplotlib.pyplot as plt
     import random as rd
     
+    # if loader dataset has attribute 'classes', get the class names, otherwise set to None
+    if hasattr(loader.dataset, 'classes'):
+        classes = loader.dataset.classes
+    else:
+        classes = None
+    
     samples = rd.sample(list(loader.dataset), num_samples)
-    plt.figure(figsize=(10, 2))
+    plt.figure(figsize=(20, 4))
     for i, (image, label) in enumerate(samples):
         plt.subplot(1, num_samples, i + 1)
-        plt.imshow(image.permute(1, 2, 0))
-        plt.title(f"Label: {label}")
+        plt.imshow(image.permute(1, 2, 0))        
+        if classes is not None:
+            plt.title(f"Label: {classes[label]}")
+        else:
+            plt.title(f"Label: {label}")
         plt.axis('off')
+    plt.suptitle(f"Randomly selected samples from the dataset")
+    plt.tight_layout()
     plt.show()
+    
+if __name__ == "__main__":
+    # Example usage
+    loader = dataset_loader("MNIST", batch_size=128)
+    display_samples(loader, num_samples=5)
