@@ -291,6 +291,9 @@ class UNet(nn.Module):
             # for other blocks, we need to concatenate the skip connection from the buffer before applying the block
             if isinstance(block, ResnetBlock):
                 buf = buffer.pop()
+                
+                # Debugging to check the shapes of buffer and out before concatenation
+                print(f"Before concatenation in bottom-to-up ResnetBlock: Buffer shape: {buf.shape}, Out shape: {out.shape}")    
                 out = torch.cat((out, buf), dim=1)
                 out = block(out, time_embs, y_emb)
             

@@ -144,6 +144,7 @@ def train(
     else:    
         print("Training completed.")
 
+
 def main():
     
     # Input for verbose mode
