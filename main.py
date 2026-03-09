@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from src.utils import dataset_loader, display_samples
 from src.embeddings import embed_classes, PositionalEncoding
 from src.models.unet import UNet
+import tqdm
+import matplotlib.pyplot as plt
 
 def load_unet(source_channel: int, unet_base_channel: int, num_classes: int):
     
@@ -138,11 +140,122 @@ def train(
         torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{epoch_idx}.pt")
         torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{epoch_idx}.pt")
         
+    # save final model and embedding
+    torch.save(model.state_dict(), f"./src/models/saved/guided_unet_final.pt")
+    torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_final.pt")
+        
     # Training completed
     if verbose:
         print("Training completed in {:.2f} minutes.".format(sum(epoch_times)/60))
     else:    
         print("Training completed.")
+        
+
+
+def load_weights(model: UNet, emb: nn.Embedding):
+    """
+    Load the weights of the trained model and embedding from the final saved checkpoint files.
+    Return the model and embedding with the loaded weights.
+    """
+    model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_final.pt"))
+    emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_final.pt"))
+    return model, emb
+    
+
+
+
+def run_inference(
+    model: UNet,
+    emb: nn.Embedding, 
+    class_name: str, 
+    class_list: list, 
+    s: float, 
+    num_row: int = 10, 
+    num_col: int = 10
+
+):
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    model.eval()
+
+    T = 1000
+    alphas = torch.linspace(start=0.9999, end=0.98, steps=T, dtype=torch.float64).to(device)
+    alpha_bars = torch.cumprod(alphas, dim=0)
+
+    ##########
+    # generate sigma_t
+    ##########
+    alpha_bars_prev = torch.cat((torch.ones(1).to(device), alpha_bars[:-1]))
+    sigma_t_squared = (1.0 - alphas) * (1.0 - alpha_bars_prev) / (1.0 - alpha_bars)
+    sigma_t = torch.sqrt(sigma_t_squared)
+
+    ##########
+    # make white noise
+    ##########
+    x = torch.randn(num_row*num_col, 3, 32, 32).to(device)
+
+    ##########
+    # generate images
+    ##########
+    with torch.no_grad():
+        # generate class embedding
+        # (the first half is for epsilon(x, y), the second half is for epsilon(x, empty))
+        class_id_list = [i for i,v in enumerate(class_list) if v==class_name]
+        if len(class_id_list) == 0:
+            raise Exception("class name doesn't exist")
+        y = class_id_list[0]
+        y_batch = (torch.tensor(y).to(device)).repeat(num_row*num_col)
+        y_batch = torch.cat((y_batch, y_batch), dim=0)
+        y_emb_batch = emb(y_batch)
+        mask = torch.cat((
+            torch.ones(num_row*num_col).to(device),
+            torch.zeros(num_row*num_col).to(device)))
+        y_emb_batch = y_emb_batch * mask[:,None]
+        # loop T-1, T-2, ... ,0
+        for t in tqdm.tqdm(reversed(range(T)), total=T):
+            # generate t
+            # (the first half is for epsilon(x, y), the second half is for epsilon(x, empty))
+            t_batch = (torch.tensor(t).to(device)).repeat(num_row*num_col)
+            t_batch = torch.cat((t_batch, t_batch), dim=0)
+            # compute epsilon
+            # (the first half is for epsilon(x, y), the second half is for epsilon(x, empty))
+            x_batch = torch.cat((x, x), dim=0)
+            eps_batch = model(x_batch, t_batch, y_emb_batch)
+            eps_cond, eps_uncond = torch.split(eps_batch, len(eps_batch)//2, dim=0)
+            eps = (1.0 + s) * eps_cond - s * eps_uncond
+            # update x
+            if t > 0:
+                z = torch.randn(num_row*num_col, 3, 32, 32).to(device)
+            else:
+                z = torch.zeros(num_row*num_col, 3, 32, 32).to(device)
+            x = (1.0 / torch.sqrt(alphas[t])).float() * (x - ((1.0 - alphas[t]) / torch.sqrt(1.0 - alpha_bars[t])).float() * eps) + \
+                sigma_t[t].float() * z
+
+    ##########
+    # output
+    ##########
+
+    # reshape to channels-last : (N,C,H,W) --> (N,H,W,C)    
+    x = x.permute(0, 2, 3, 1)
+    # clip
+    x = torch.clamp(x, min=0.0, max=1.0)
+    # draw
+    fig, axes = plt.subplots(num_row, num_col, figsize=(5,5))
+    for i in range(num_row*num_col):
+        image = x[i].cpu().numpy()
+        row = i//num_col
+        col = i%num_col
+        ax = axes[row, col]
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.imshow(image)
+    plt.suptitle(f"Generated images for class '{class_name}' with s={s}")
+    plt.savefig(f"./report/images/guided_unet_{class_name}_s{s}.png")
+    plt.tight_layout()
+    plt.show()
+    
+    
 
 
 def main():
@@ -226,8 +339,18 @@ def main():
         train(model, emb, lr=lr, num_epochs=num_epochs, p_uncond=p_uncond, loader=data_loader, dataset_name=dataset_name, verbose=verbose)
         
     else:
-        print("Sampling functionality not implemented yet. Please run the training to generate samples.")
-    
+        model, emb = load_weights(model, emb)
+        if verbose:
+            print("Model weights loaded successfully.")
+        
+        class_name = input("Please enter the class name to generate (default is '0' for MNIST): ")
+        if class_name.strip() == "":
+            class_name = "0"
+        s_input = input("Please enter the guidance scale s (default is 0 (unconditional)): ")
+        s = float(s_input) if s_input.strip() != "" else 0.0
+         
+        run_inference(model, emb, class_name, data_loader.dataset.classes, s=s)
+        print(f"Generated images for class '{class_name}' with guidance scale s={s}.")
     
     
 if __name__ == "__main__":

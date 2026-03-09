@@ -36,6 +36,7 @@ def dataset_loader(dataset_name: str = "MNIST", batch_size: int = 128) -> torch.
             train=True,
             download=True,
             transform=transforms.Compose([
+            transforms.Resize(32),
             transforms.ToTensor(),
         ]))
     elif dataset_name == "CIFAR10":
