@@ -60,6 +60,13 @@ def train(
     sqrt_alpha_bars_t = torch.sqrt(alpha_bars)
     sqrt_one_minus_alpha_bars_t = torch.sqrt(1.0 - alpha_bars)
 
+    # ensure directory exists
+    if not os.path.exists("./src/models/saved"):
+        os.makedirs("./src/models/saved")
+        
+    if not os.path.exists("./.logs/buffer"):
+        os.makedirs("./.logs/buffer")
+
     # remove log file if exists
     log_file = f".logs/buffer/guided_unet_train_loss_{dataset_name}.log"
     if os.path.exists(log_file):
@@ -251,6 +258,11 @@ def run_inference(
         ax.set_yticks([])
         ax.imshow(image)
     plt.suptitle(f"Generated images for class '{class_name}' with s={s}")
+    
+    # ensure directory exists
+    if not os.path.exists("./report/images"):
+        os.makedirs("./report/images")
+    
     plt.savefig(f"./report/images/guided_unet_{class_name}_s{s}.png")
     plt.tight_layout()
     plt.show()
