@@ -4,6 +4,7 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision
 from src.utils import dataset_loader, display_samples
 from src.embeddings import embed_classes, PositionalEncoding
 from src.models.unet import UNet
@@ -125,7 +126,10 @@ def train(
             # log
             epoch_loss.append(loss.item())
             if verbose:
-                print("epoch{} (iter{}) - loss {:5.4f}".format(epoch_idx+1, batch_idx+1, loss), end="\r")
+                #print("epoch{} (iter{}) - loss {:5.4f}".format(epoch_idx+1, batch_idx+1, loss), end="\r")
+                # add a progression bar for each epoch with tqdm, and print the epoch duration and estimated remaining time at the end of each epoch                
+                print(f"Epoch {epoch_idx+1}/{num_epochs}, Batch {batch_idx+1}/{len(loader)}, Loss: {loss.item():.4f}", end="\r")
+                    
 
         end_time = time.time()
         epoch_duration = end_time - start_time
@@ -137,19 +141,19 @@ def train(
         # finalize epoch (save log and checkpoint)
         epoch_average_loss = sum(epoch_loss)/len(epoch_loss)
         if verbose:
-            print("epoch{} (iter{}) - loss {:5.4f}".format(epoch_idx+1, batch_idx+1, epoch_average_loss))
+            #print("epoch{} (iter{}) - loss {:5.4f}".format(epoch_idx+1, batch_idx+1, epoch_average_loss))
             print(f"Epoch {epoch_idx+1} completed in {epoch_duration:.2f} seconds.")
             print(f"Estimated remaining time: {remaining_time_format}")
             
         with open(log_file, "a") as f:
             for l in epoch_loss:
                 f.write("%s\n" %l)
-        torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{epoch_idx}.pt")
-        torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{epoch_idx}.pt")
-        
+        torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{dataset_name}_{epoch_idx}.pt")
+        torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{dataset_name}_{epoch_idx}.pt")
+
     # save final model and embedding
-    torch.save(model.state_dict(), f"./src/models/saved/guided_unet_final.pt")
-    torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_final.pt")
+    torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{dataset_name}_final.pt")
+    torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{dataset_name}_final.pt")
         
     # Training completed
     if verbose:
@@ -159,16 +163,14 @@ def train(
         
 
 
-def load_weights(model: UNet, emb: nn.Embedding):
+def load_weights(model: UNet, emb: nn.Embedding, dataset_name: str = "MNIST"):
     """
     Load the weights of the trained model and embedding from the final saved checkpoint files.
     Return the model and embedding with the loaded weights.
     """
-    model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_final.pt"))
-    emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_final.pt"))
+    model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_{dataset_name}_final.pt"))
+    emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_final.pt"))
     return model, emb
-    
-
 
 
 def run_inference(
@@ -177,6 +179,8 @@ def run_inference(
     class_name: str, 
     class_list: list, 
     s: float, 
+    source_channel: int = 3,
+    img_size: int = 32,
     num_row: int = 10, 
     num_col: int = 10
 
@@ -200,7 +204,7 @@ def run_inference(
     ##########
     # make white noise
     ##########
-    x = torch.randn(num_row*num_col, 3, 32, 32).to(device)
+    x = torch.randn(num_row*num_col, source_channel, img_size, img_size).to(device)
 
     ##########
     # generate images
@@ -233,9 +237,9 @@ def run_inference(
             eps = (1.0 + s) * eps_cond - s * eps_uncond
             # update x
             if t > 0:
-                z = torch.randn(num_row*num_col, 3, 32, 32).to(device)
+                z = torch.randn(num_row*num_col, source_channel, img_size, img_size).to(device)
             else:
-                z = torch.zeros(num_row*num_col, 3, 32, 32).to(device)
+                z = torch.zeros(num_row*num_col, source_channel, img_size, img_size).to(device)
             x = (1.0 / torch.sqrt(alphas[t])).float() * (x - ((1.0 - alphas[t]) / torch.sqrt(1.0 - alpha_bars[t])).float() * eps) + \
                 sigma_t[t].float() * z
 
@@ -361,7 +365,7 @@ def main():
         s_input = input("Please enter the guidance scale s (default is 0 (unconditional)): ")
         s = float(s_input) if s_input.strip() != "" else 0.0
          
-        run_inference(model, emb, class_name, data_loader.dataset.classes, s=s)
+        run_inference(model, emb, class_name, data_loader.dataset.classes, s=s, source_channel=source_channel, img_size=data_loader.dataset[0][0].shape[1])
         print(f"Generated images for class '{class_name}' with guidance scale s={s}.")
     
     
