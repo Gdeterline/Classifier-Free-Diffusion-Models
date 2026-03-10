@@ -84,7 +84,7 @@ def train(
         if verbose:
             print(f"Starting epoch {epoch_idx+1}/{num_epochs}...")
         epoch_loss = []
-        for batch_idx, (data, y) in enumerate(loader):
+        for batch_idx, (data, y) in enumerate(tqdm.tqdm(loader, total=len(loader), desc=f"Epoch {epoch_idx+1}/{num_epochs}", leave=False)):
             model.train()
             opt.zero_grad()
 
@@ -125,10 +125,10 @@ def train(
 
             # log
             epoch_loss.append(loss.item())
-            if verbose:
+            #if verbose:
                 #print("epoch{} (iter{}) - loss {:5.4f}".format(epoch_idx+1, batch_idx+1, loss), end="\r")
                 # add a progression bar for each epoch with tqdm, and print the epoch duration and estimated remaining time at the end of each epoch                
-                print(f"Epoch {epoch_idx+1}/{num_epochs}, Batch {batch_idx+1}/{len(loader)}, Loss: {loss.item():.4f}", end="\r")
+                #print(f"Epoch {epoch_idx+1}/{num_epochs}, Batch {batch_idx+1}/{len(loader)}, Loss: {loss.item():.4f}", end="\r")
                     
 
         end_time = time.time()
