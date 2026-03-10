@@ -142,7 +142,7 @@ def train(
         epoch_average_loss = sum(epoch_loss)/len(epoch_loss)
         if verbose:
             #print("epoch{} (iter{}) - loss {:5.4f}".format(epoch_idx+1, batch_idx+1, epoch_average_loss))
-            print(f"Epoch {epoch_idx+1} completed in {epoch_duration:.2f} seconds.")
+            print(f"Epoch {epoch_idx+1} completed in {epoch_duration:.2f} seconds - Average Loss: {epoch_average_loss:.4f}")
             print(f"Estimated remaining time: {remaining_time_format}")
             
         with open(log_file, "a") as f:
