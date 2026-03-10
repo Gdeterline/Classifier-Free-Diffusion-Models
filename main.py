@@ -168,12 +168,13 @@ def load_weights(model: UNet, emb: nn.Embedding, dataset_name: str = "MNIST", ep
     Load the weights of the trained model and embedding from the final saved checkpoint files.
     Return the model and embedding with the loaded weights.
     """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if epoch_idx is None or epoch_idx == "final":
         if verbose:
             print("Loading final model and embedding for dataset {}...".format(dataset_name))
         try:
-            model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_{dataset_name}_final.pt"))
-            emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_final.pt"))
+            model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_{dataset_name}_final.pt", map_location=device))
+            emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_final.pt", map_location=device))
         except FileNotFoundError:
             raise FileNotFoundError("Final model or embedding checkpoint not found. Please ensure that the training has been completed and the checkpoint files are saved.")
     else:
@@ -185,8 +186,8 @@ def load_weights(model: UNet, emb: nn.Embedding, dataset_name: str = "MNIST", ep
         if verbose:
             print(f"Loading model and embedding from epoch {integer_epoch_idx}, for dataset {dataset_name}...")
         try:
-            model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_{dataset_name}_{integer_epoch_idx}.pt"))
-            emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_{integer_epoch_idx}.pt"))
+            model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_{dataset_name}_{integer_epoch_idx}.pt", map_location=device))
+            emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_{integer_epoch_idx}.pt", map_location=device))
         except FileNotFoundError:
             raise FileNotFoundError(f"Checkpoint for epoch {integer_epoch_idx} on dataset {dataset_name} not found. Please ensure the checkpoint file exists.")
     return model, emb
@@ -374,12 +375,34 @@ def main():
         train(model, emb, lr=lr, num_epochs=num_epochs, p_uncond=p_uncond, loader=data_loader, dataset_name=dataset_name, verbose=verbose)
         
     else:
+        
+        # list available checkpoints for the user to choose from
+        checkpoint_dir = "./src/models/saved"
+        available_checkpoints_unet = [f for f in os.listdir(checkpoint_dir) if f.startswith(f"guided_unet_{dataset_name}_") and f.endswith(".pt")]
+        available_checkpoints_embedding = [f for f in os.listdir(checkpoint_dir) if f.startswith(f"guided_embedding_{dataset_name}_") and f.endswith(".pt")]
+        if verbose:
+            print("All available checkpoints for dataset {}:".format(dataset_name))
+            for ckpt in available_checkpoints_unet:
+                # extract epoch index from checkpoint name
+                epoch_idx = ckpt.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]
+                print(epoch_idx)
+        
         epoch_idx = input("Please enter the epoch index to load (integer or 'final', default is 'final'): ")
-        # Use the provided epoch index or default to 'final'
-        if epoch_idx.strip() == "" or epoch_idx.strip().lower() == "final":
+        
+        # ensure the user input is valid (and in the available checkpoints)
+        if epoch_idx.strip() == "":
             epoch_idx = "final"
-        else:
-            epoch_idx = epoch_idx.strip()
+        elif epoch_idx.strip() != "final":
+            try:
+                int_epoch_idx = int(epoch_idx.strip())
+                unet_checkpoint_name = f"guided_unet_{dataset_name}_{int_epoch_idx}.pt"
+                embedding_checkpoint_name = f"guided_embedding_{dataset_name}_{int_epoch_idx}.pt"
+                if unet_checkpoint_name not in available_checkpoints_unet or embedding_checkpoint_name not in available_checkpoints_embedding:
+                    print(f"Checkpoint for epoch {int_epoch_idx} not found. Please choose from the available checkpoints.")
+                    main()
+            except ValueError:
+                print("Invalid input for epoch index. Please enter an integer or 'final'.")
+                main()
         
         model, emb = load_weights(model, emb, dataset_name=dataset_name, epoch_idx=epoch_idx, verbose=verbose)
         if verbose:
