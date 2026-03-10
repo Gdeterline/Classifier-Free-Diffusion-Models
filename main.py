@@ -163,13 +163,32 @@ def train(
         
 
 
-def load_weights(model: UNet, emb: nn.Embedding, dataset_name: str = "MNIST"):
+def load_weights(model: UNet, emb: nn.Embedding, dataset_name: str = "MNIST", epoch_idx: str = "final", verbose: bool = False):
     """
     Load the weights of the trained model and embedding from the final saved checkpoint files.
     Return the model and embedding with the loaded weights.
     """
-    model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_{dataset_name}_final.pt"))
-    emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_final.pt"))
+    if epoch_idx is None or epoch_idx == "final":
+        if verbose:
+            print("Loading final model and embedding for dataset {}...".format(dataset_name))
+        try:
+            model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_{dataset_name}_final.pt"))
+            emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_final.pt"))
+        except FileNotFoundError:
+            raise FileNotFoundError("Final model or embedding checkpoint not found. Please ensure that the training has been completed and the checkpoint files are saved.")
+    else:
+        integer_epoch_idx = None
+        try:
+            integer_epoch_idx = int(epoch_idx)
+        except ValueError:
+            raise ValueError("epoch_idx should be an integer or 'final'")
+        if verbose:
+            print(f"Loading model and embedding from epoch {integer_epoch_idx}, for dataset {dataset_name}...")
+        try:
+            model.load_state_dict(torch.load(f"./src/models/saved/guided_unet_{dataset_name}_{integer_epoch_idx}.pt"))
+            emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_{integer_epoch_idx}.pt"))
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Checkpoint for epoch {integer_epoch_idx} on dataset {dataset_name} not found. Please ensure the checkpoint file exists.")
     return model, emb
 
 
@@ -355,13 +374,20 @@ def main():
         train(model, emb, lr=lr, num_epochs=num_epochs, p_uncond=p_uncond, loader=data_loader, dataset_name=dataset_name, verbose=verbose)
         
     else:
-        model, emb = load_weights(model, emb)
+        epoch_idx = input("Please enter the epoch index to load (integer or 'final', default is 'final'): ")
+        # Use the provided epoch index or default to 'final'
+        if epoch_idx.strip() == "" or epoch_idx.strip().lower() == "final":
+            epoch_idx = "final"
+        else:
+            epoch_idx = epoch_idx.strip()
+        
+        model, emb = load_weights(model, emb, dataset_name=dataset_name, epoch_idx=epoch_idx, verbose=verbose)
         if verbose:
             print("Model weights loaded successfully.")
         
-        class_name = input("Please enter the class name to generate (default is '0' for MNIST): ")
+        class_name = input("Please enter the class name to generate (default is '0 - zero' for MNIST): ")
         if class_name.strip() == "":
-            class_name = "0"
+            class_name = "0 - zero"
         s_input = input("Please enter the guidance scale s (default is 0 (unconditional)): ")
         s = float(s_input) if s_input.strip() != "" else 0.0
          
