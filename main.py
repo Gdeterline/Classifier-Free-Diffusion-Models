@@ -73,6 +73,15 @@ def train(
     if os.path.exists(log_file):
         os.remove(log_file)
 
+
+    with open(log_file, "a") as f:
+            # first line of the log file contains hyperparameters and epochs info
+            f.write(f"Training log for guided UNet on {dataset_name} dataset\n")
+            f.write(f"Hyperparameters: learning_rate={lr}, num_epochs={num_epochs}, p_uncond={p_uncond}\n")
+            
+            # second line of the log file contains column names for the training log
+            f.write("timestamp,epoch,average_loss,epoch_duration_seconds\n")
+
     epoch_times = []
 
     # loop
@@ -146,21 +155,46 @@ def train(
             print(f"Estimated remaining time: {remaining_time_format}")
             
         with open(log_file, "a") as f:
-            for l in epoch_loss:
-                f.write("%s\n" %l)
-        torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{dataset_name}_{epoch_idx}.pt")
-        torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{dataset_name}_{epoch_idx}.pt")
-
+            # for each epoch, save the timestamp, epoch index, average loss, and epoch duration in seconds
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')},{epoch_idx+1},{epoch_average_loss},{epoch_duration}\n")
+        
+        # save checkpoint every 10 epochs
+        if (epoch_idx + 1) % 10 == 0:
+            torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{dataset_name}_{epoch_idx}.pt")
+            torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{dataset_name}_{epoch_idx}.pt")
+            
+            # keep only the last 5 checkpoints (embedding and unet) to save disk space
+            checkpoint_files = sorted([f for f in os.listdir("./src/models/saved") if f.startswith(f"guided_unet_{dataset_name}_") and f.endswith(".pt")], key=lambda x: int(x.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]))
+            embedding_checkpoint_files = sorted([f for f in os.listdir("./src/models/saved") if f.startswith(f"guided_embedding_{dataset_name}_") and f.endswith(".pt")], key=lambda x: int(x.split(f"guided_embedding_{dataset_name}_")[1].split(".pt")[0]))
+            if len(checkpoint_files) > 5:
+                os.remove(os.path.join("./src/models/saved", checkpoint_files[0]))
+            if len(embedding_checkpoint_files) > 5:
+                os.remove(os.path.join("./src/models/saved", embedding_checkpoint_files[0]))
+                
+            
     # save final model and embedding
     torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{dataset_name}_final.pt")
     torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{dataset_name}_final.pt")
         
     # Training completed
     if verbose:
-        print("Training completed in {:.2f} minutes.".format(sum(epoch_times)/60))
+        print("Training completed in {:.2f} minutes. Saving log file...".format(sum(epoch_times)/60))
     else:    
-        print("Training completed.")
+        print("Training completed. Saving log file...")
         
+    # Move log file from .logs/buffer to .logs with a timestamp
+    final_log_file = f".logs/guided_unet_train_loss_{dataset_name}_{time.strftime('%Y%m%d_%H%M%S')}.log"
+    os.rename(log_file, final_log_file)
+    if verbose:
+        print(f"Log file saved to {final_log_file}")
+        
+    print(f"Final model and embedding saved to ./src/models/saved/guided_unet_{dataset_name}_final.pt   \
+        and ./src/models/saved/guided_embedding_{dataset_name}_final.pt")
+    
+    print("You can find the training log in the .logs directory with the name format guided_unet_train_loss_{dataset_name}_YYYYMMDD_HHMMSS.log")
+    
+    print("You can load the final model and embedding for inference or further training.")
+
 
 
 def load_weights(model: UNet, emb: nn.Embedding, dataset_name: str = "MNIST", epoch_idx: str = "final", verbose: bool = False):

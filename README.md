@@ -36,3 +36,7 @@ pip install -r requirements.txt
 ## Usage
 
 The main script for training and sampling from the diffusion model is `main.py` (based on the user's choice/input).
+
+## Notes
+
+The final saved model + embeddings are located in `src/models/saved/` and correspond to the epoch 152 for the MNIST dataset. The saved model is a PyTorch state dictionary that can be loaded for inference or further training.
