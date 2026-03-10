@@ -211,6 +211,8 @@ def load_weights(model: UNet, emb: nn.Embedding, dataset_name: str = "MNIST", ep
             emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_final.pt", map_location=device))
         except FileNotFoundError:
             raise FileNotFoundError("Final model or embedding checkpoint not found. Please ensure that the training has been completed and the checkpoint files are saved.")
+        except (EOFError, RuntimeError) as e:
+            raise RuntimeError(f"Final checkpoint file for dataset {dataset_name} is corrupted or empty. Try loading a specific epoch checkpoint instead. Original error: {e}")
     else:
         integer_epoch_idx = None
         try:
@@ -224,6 +226,8 @@ def load_weights(model: UNet, emb: nn.Embedding, dataset_name: str = "MNIST", ep
             emb.load_state_dict(torch.load(f"./src/models/saved/guided_embedding_{dataset_name}_{integer_epoch_idx}.pt", map_location=device))
         except FileNotFoundError:
             raise FileNotFoundError(f"Checkpoint for epoch {integer_epoch_idx} on dataset {dataset_name} not found. Please ensure the checkpoint file exists.")
+        except (EOFError, RuntimeError) as e:
+            raise RuntimeError(f"Checkpoint file for epoch {integer_epoch_idx} on dataset {dataset_name} is corrupted or empty. Original error: {e}")
     return model, emb
 
 
@@ -321,7 +325,9 @@ def run_inference(
     if not os.path.exists("./report/images"):
         os.makedirs("./report/images")
     
-    plt.savefig(f"./report/images/guided_unet_{class_name}_s{s}.png")
+    title_class_name = class_name.replace(" ", "_").replace("-", "_")
+    
+    plt.savefig(f"./report/images/guided_unet_{title_class_name}_s{s}.png")
     plt.tight_layout()
     plt.show()
     
@@ -421,12 +427,36 @@ def main():
                 epoch_idx = ckpt.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]
                 print(epoch_idx)
         
-        epoch_idx = input("Please enter the epoch index to load (integer or 'final', default is 'final'): ")
+        epoch_idx = input("Please enter the epoch index to load (integer or 'final', default is last appeared): ")
         
         # ensure the user input is valid (and in the available checkpoints)
-        if epoch_idx.strip() == "":
-            epoch_idx = "final"
-        elif epoch_idx.strip() != "final":
+        if epoch_idx.strip() == "" or epoch_idx.strip() == "final":
+            
+            if len(available_checkpoints_unet) == 0 or len(available_checkpoints_embedding) == 0:
+                print("No checkpoints found for dataset {}. Please train the model first.".format(dataset_name))
+                main()
+            else:
+        
+                # check if final checkpoint exists, if yes load final checkpoint, if not load the last appeared checkpoint
+                final_unet_checkpoint = f"guided_unet_{dataset_name}_final.pt"
+                final_embedding_checkpoint = f"guided_embedding_{dataset_name}_final.pt"
+                if final_unet_checkpoint in available_checkpoints_unet and final_embedding_checkpoint in available_checkpoints_embedding:
+                    epoch_idx = "final"
+                else:
+                    # get the last appeared checkpoint (the one with the largest epoch index)
+                    if len(available_checkpoints_unet) == 0 or len(available_checkpoints_embedding) == 0:
+                        print("No checkpoints found for dataset {}. Please train the model first.".format(dataset_name))
+                        main()
+                    else:
+                        last_unet_checkpoint = sorted(available_checkpoints_unet, key=lambda x: int(x.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]))[-1]
+                        last_embedding_checkpoint = sorted(available_checkpoints_embedding, key=lambda x: int(x.split(f"guided_embedding_{dataset_name}_")[1].split(".pt")[0]))[-1]
+                        if last_unet_checkpoint.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0] != last_embedding_checkpoint.split(f"guided_embedding_{dataset_name}_")[1].split(".pt")[0]:
+                            print("The last appeared UNet checkpoint and embedding checkpoint do not match. Please check the available checkpoints.")
+                            main()
+                        else:
+                            epoch_idx = last_unet_checkpoint.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]
+                    
+        elif epoch_idx.strip() != "final" and epoch_idx.strip() != "":
             try:
                 int_epoch_idx = int(epoch_idx.strip())
                 unet_checkpoint_name = f"guided_unet_{dataset_name}_{int_epoch_idx}.pt"
