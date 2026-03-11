@@ -92,9 +92,9 @@ def train(
         start_time = time.time()
         
         if verbose:
-            print(f"Starting epoch {epoch_idx+1}/{num_epochs}...")
+            print(f"Starting epoch {start_epoch+epoch_idx+1}/{start_epoch + num_epochs}...")
         epoch_loss = []
-        for batch_idx, (data, y) in enumerate(tqdm.tqdm(loader, total=len(loader), desc=f"Epoch {epoch_idx+1}/{num_epochs}", leave=False)):
+        for batch_idx, (data, y) in enumerate(tqdm.tqdm(loader, total=len(loader), desc=f"Epoch {start_epoch+epoch_idx+1}/{start_epoch + num_epochs}", leave=False)):
             model.train()
             opt.zero_grad()
 
@@ -152,17 +152,17 @@ def train(
         epoch_average_loss = sum(epoch_loss)/len(epoch_loss)
         if verbose:
             #print("epoch{} (iter{}) - loss {:5.4f}".format(epoch_idx+1, batch_idx+1, epoch_average_loss))
-            print(f"Epoch {epoch_idx+1} completed in {epoch_duration:.2f} seconds - Average Loss: {epoch_average_loss:.4f}")
+            print(f"Epoch {start_epoch+epoch_idx+1} completed in {epoch_duration:.2f} seconds - Average Loss: {epoch_average_loss:.4f}")
             print(f"Estimated remaining time: {remaining_time_format}")
             
         with open(log_file, "a") as f:
             # for each epoch, save the timestamp, epoch index, average loss, and epoch duration in seconds
-            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')},{epoch_idx+1},{epoch_average_loss},{epoch_duration}\n")
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')},{start_epoch+epoch_idx+1},{epoch_average_loss},{epoch_duration}\n")
         
         # save checkpoint every 10 epochs
-        if (epoch_idx) % 10 == 0:
-            torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{dataset_name}_{epoch_idx}.pt")
-            torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{dataset_name}_{epoch_idx}.pt")
+        if (start_epoch+epoch_idx) % 10 == 0:
+            torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{dataset_name}_{start_epoch+epoch_idx+1}.pt")
+            torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{dataset_name}_{start_epoch+epoch_idx+1}.pt")
             
             # keep only the last 5 checkpoints (embedding and unet) to save disk space
             checkpoint_files = sorted([f for f in os.listdir("./src/models/saved") if f.startswith(f"guided_unet_{dataset_name}_") and f.endswith(".pt")], key=lambda x: int(x.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]))
@@ -442,6 +442,9 @@ def main():
                         print("Model weights loaded successfully from epoch {}.".format(epoch_idx))
                     if verbose:
                         print("Training from epoch {} with learning rate {}, total number of epochs {}, and unconditional probability {}...".format(epoch_idx, lr, num_epochs + int(epoch_idx), p_uncond))
+                    print(f"Be careful that the learning rate scheduler will be reset when loading the checkpoint, \
+                        so the learning rate will start from the initial learning rate {lr} and linearly \
+                            increase to {lr} * 5000 in the first 5000 iterations.")
                     train(model, emb, lr=lr, num_epochs=num_epochs, p_uncond=p_uncond, loader=data_loader, dataset_name=dataset_name, verbose=verbose)
         
     else:
