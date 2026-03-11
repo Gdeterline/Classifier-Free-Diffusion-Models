@@ -111,7 +111,7 @@ def train(
             # Generate the seed of noise, epsilon .
             #    We just pick up from 1D standard normal distribution with the same shape,
             #    because off-diagonal elements in covariance is all zero.
-            eps = torch.randn_like(x_0).to(device)
+            eps = torch.randn_like(x_0).to(device)  # sample from standard normal distribution with the same shape as x_0
 
             # Compute x_t = sqrt(alpha_bar_t) x_0 + sqrt(1-alpha_bar_t) epsilon
             #    (t == 0 means diffused for 1 step)
@@ -121,7 +121,7 @@ def train(
             y_emb = emb(y_)
 
             # Set empty in class embedding with probability p_uncond (See above)
-            rnd = torch.rand(b).to(device)
+            rnd = torch.rand(b).to(device)  # sample b random numbers from uniform distribution [0, 1)
             mul = torch.where(rnd < p_uncond, 0.0, 1.0)
             y_emb = y_emb * mul[:,None]
 
