@@ -32,7 +32,8 @@ def train(
     p_uncond: float = 0.2,
     loader: torch.utils.data.DataLoader = None,
     dataset_name: str = "MNIST",
-    verbose: bool = False
+    verbose: bool = False,
+    start_epoch: int = 0
 ):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -85,7 +86,7 @@ def train(
     epoch_times = []
 
     # loop
-    for epoch_idx in range(num_epochs):
+    for epoch_idx in range(start_epoch, start_epoch + num_epochs):
         
         # Keep track of time for each epoch to print duration and ETA based on average epoch time
         start_time = time.time()
@@ -435,7 +436,7 @@ def main():
                     print("The last appeared UNet checkpoint and embedding checkpoint do not match. Please check the available checkpoints.")
                     main()
                 else:
-                    epoch_idx = last_unet_checkpoint.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]
+                    epoch_idx = int(last_unet_checkpoint.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0])
                     model, emb = load_weights(model, emb, dataset_name=dataset_name, epoch_idx=epoch_idx, verbose=verbose)
                     if verbose:
                         print("Model weights loaded successfully from epoch {}.".format(epoch_idx))
