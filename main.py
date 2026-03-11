@@ -475,8 +475,8 @@ def main():
         class_name = input("Please enter the class name to generate (default is '0 - zero' for MNIST): ")
         if class_name.strip() == "":
             class_name = "0 - zero"
-        s_input = input("Please enter the guidance scale s (default is 0 (unconditional)): ")
-        s = float(s_input) if s_input.strip() != "" else 0.0
+        s_input = input("Please enter the guidance scale s (default is -1 (unconditional)): ")
+        s = float(s_input) if s_input.strip() != "" else -1.0
          
         run_inference(model, emb, class_name, data_loader.dataset.classes, s=s, source_channel=source_channel, img_size=data_loader.dataset[0][0].shape[1])
         print(f"Generated images for class '{class_name}' with guidance scale s={s}.")
