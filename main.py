@@ -404,6 +404,9 @@ def main():
     train_or_sample = input("Do you want to train the model or sample from it? (train/sample, default is sample): ")
     
     if train_or_sample.strip().lower() == "train":
+        
+        train_from_scratch_input = input("Do you want to train from scratch? (y/n, default is y): ")
+        
         lr_input = input("Please enter the learning rate (default is 2e-4): ")
         num_epochs_input = input("Please enter the number of epochs (default is 200): ")
         p_uncond_input = input("Please enter the unconditional probability (default is 0.2): ")
@@ -412,7 +415,33 @@ def main():
         num_epochs = int(num_epochs_input) if num_epochs_input.strip() != "" else 200
         p_uncond = float(p_uncond_input) if p_uncond_input.strip() != "" else 0.2
         
-        train(model, emb, lr=lr, num_epochs=num_epochs, p_uncond=p_uncond, loader=data_loader, dataset_name=dataset_name, verbose=verbose)
+        if train_from_scratch_input.strip().lower() == 'y' or train_from_scratch_input.strip() == "":
+            if verbose:
+                print("Training from scratch with learning rate {}, number of epochs {}, and unconditional probability {}...".format(lr, num_epochs, p_uncond))
+            train(model, emb, lr=lr, num_epochs=num_epochs, p_uncond=p_uncond, loader=data_loader, dataset_name=dataset_name, verbose=verbose)
+        else:
+            checkpoint_dir = "./src/models/saved"
+            available_checkpoints_unet = [f for f in os.listdir(checkpoint_dir) if f.startswith(f"guided_unet_{dataset_name}_") and f.endswith(".pt")]
+            available_checkpoints_embedding = [f for f in os.listdir(checkpoint_dir) if f.startswith(f"guided_embedding_{dataset_name}_") and f.endswith(".pt")]
+            if len(available_checkpoints_unet) == 0 or len(available_checkpoints_embedding) == 0:
+                print("No checkpoints found for dataset {}. Please train the model first.".format(dataset_name))
+                main()
+            else:
+                if verbose:
+                    print("Loading the last appeared checkpoint for dataset {} and continue training...".format(dataset_name))
+                last_unet_checkpoint = sorted(available_checkpoints_unet, key=lambda x: int(x.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]))[-1]
+                last_embedding_checkpoint = sorted(available_checkpoints_embedding, key=lambda x: int(x.split(f"guided_embedding_{dataset_name}_")[1].split(".pt")[0]))[-1]
+                if last_unet_checkpoint.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0] != last_embedding_checkpoint.split(f"guided_embedding_{dataset_name}_")[1].split(".pt")[0]:
+                    print("The last appeared UNet checkpoint and embedding checkpoint do not match. Please check the available checkpoints.")
+                    main()
+                else:
+                    epoch_idx = last_unet_checkpoint.split(f"guided_unet_{dataset_name}_")[1].split(".pt")[0]
+                    model, emb = load_weights(model, emb, dataset_name=dataset_name, epoch_idx=epoch_idx, verbose=verbose)
+                    if verbose:
+                        print("Model weights loaded successfully from epoch {}.".format(epoch_idx))
+                    if verbose:
+                        print("Training from epoch {} with learning rate {}, total number of epochs {}, and unconditional probability {}...".format(epoch_idx, lr, num_epochs + int(epoch_idx), p_uncond))
+                    train(model, emb, lr=lr, num_epochs=num_epochs, p_uncond=p_uncond, loader=data_loader, dataset_name=dataset_name, verbose=verbose)
         
     else:
         
