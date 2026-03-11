@@ -159,7 +159,7 @@ def train(
             f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')},{epoch_idx+1},{epoch_average_loss},{epoch_duration}\n")
         
         # save checkpoint every 10 epochs
-        if (epoch_idx + 1) % 10 == 0:
+        if (epoch_idx) % 10 == 0:
             torch.save(model.state_dict(), f"./src/models/saved/guided_unet_{dataset_name}_{epoch_idx}.pt")
             torch.save(emb.state_dict(), f"./src/models/saved/guided_embedding_{dataset_name}_{epoch_idx}.pt")
             
