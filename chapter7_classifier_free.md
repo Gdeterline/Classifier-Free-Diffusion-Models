@@ -11,6 +11,7 @@
 
 Dans le chapitre précédent, nous avons détaillé comment la Classifier Guidance permet de contrôler le processus de génération des modèles de diffusion en utilisant le gradient issu d'un modèle de classification. Bien que cette méthode soit efficace, elle s'accompagne de contraintes majeures qui limitent son application pratique. 
 
+La principale difficulté réside dans la nécessité de concevoir, d'entraîner et d'intégrer un réseau de neurones externe  supplémentaire. Ce classifieur doit être suffisamment robuste pour classifier des images soumises à des niveaux de bruit qui peuvent être extrêmes (pour des valeurs des pas de temps $t$ proches de $T$), afin de correspondre aux états intermédiaires $x_t$ du processus de diffusion.
 
 Pour palier à ces limitations, à la fois architecturales et pratiques, Jonathan Ho et Tim Salimans ont introduit en 2021 la \textbf{Classifier-Free Guidance} \cite{ho2021classifierfree}. L'objectif de cette approche est de permettre un conditionnement du processus de génération sans pour autant nécessiter de modèle de classification externe.
 
