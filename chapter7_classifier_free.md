@@ -1,5 +1,5 @@
 \chapter{Classifier-Free Guidance}
-\label{chap:classifier}
+\label{chap:classifier_free}
 \rhead{Classifier-Free Guidance}
 
 \section{Motivations}
@@ -8,7 +8,7 @@ Dans le chapitre précédent, nous avons détaillé comment la Classifier Guidan
 
 La principale difficulté réside dans la nécessité de concevoir, d'entraîner et d'intégrer un réseau de neurones externe  supplémentaire. Ce classifieur doit être suffisamment robuste pour classifier des images soumises à des niveaux de bruit qui peuvent être extrêmes (pour des valeurs des pas de temps $t$ proches de $T$), afin de correspondre aux états intermédiaires $x_t$ du processus de diffusion.\\
 
-Pour palier à ces limitations, à la fois architecturales et pratiques, Jonathan Ho et Tim Salimans ont introduit en 2021 la \textbf{Classifier-Free Guidance} \cite{ho2021classifierfree}. L'objectif de cette approche est de permettre un conditionnement du processus de génération sans pour autant nécessiter de modèle de classification externe.\\
+Pour pallier à ces limitations, à la fois architecturales et pratiques, Jonathan Ho et Tim Salimans ont introduit en 2021 la \textbf{Classifier-Free Guidance} \cite{ho2022}. L'objectif de cette approche est de permettre un conditionnement du processus de génération sans pour autant nécessiter de modèle de classification externe.\\
 
 \section{Principe général de la Classifier-Free Guidance}
 
@@ -58,9 +58,11 @@ Nous avons alors une combinaison linéaire entre le score inconditionnel $\nabla
 Lors de l'entraînement du modèle, nous présentons à la fois des exemples conditionnels (où la classe $y$ est donnée) et des exemples inconditionnels (où la classe est remplacée par un token nul, on parle de "dropout" de classe). Le modèle de diffusion est alors capable de générer des images à la fois avec et sans conditionnement. Lors de l'inférence, à chaque pas de temps, nous pouvons alors calculer les deux scores (conditionnel et inconditionnel) et les combiner pour guider la génération selon le niveau de guidance souhaité. \\
 
 Selon les valeurs de $\gamma$, nous pouvons obtenir différents comportements de génération :
-- $\gamma = 0$ : Génération purement inconditionnelle, où le modèle génère des images sans tenir compte de la condition $y$.
-- $\gamma = 1$ : Génération purement conditionnelle, où le modèle génère des images strictement conformes à la condition $y$.
-- $\gamma > 1$ : Génération avec une guidance renforcée, où le modèle est fortement incité à suivre la condition $y$, au risque de réduire la diversité des échantillons générés. \\
+\begin{itemize}
+    \item $\gamma = 0$ : Génération purement inconditionnelle, où le modèle génère des images sans tenir compte de la condition $y$.
+    \item $\gamma = 1$ : Génération purement conditionnelle, où le modèle génère des images strictement conformes à la condition $y$.
+    \item $\gamma > 1$ : Génération avec une guidance renforcée, où le modèle est fortement incité à suivre la condition $y$, au risque de réduire la diversité des échantillons générés. \\
+\end{itemize}
 
 Nous pouvons maintenant présenter une intuition géométrique de la CFG, qui devrait illustrer de manière plus visuelle comment la combinaison des scores conditionnel et inconditionnel permet de guider le processus de génération dans l'espace des images. \\
 
@@ -80,37 +82,41 @@ Enfin, l'ajout de bruit pour obtenir $x_{t-1}$ à partir de la prédiction ajust
 
 \begin{figure}[htbp]
     \centering
-    \begin{subfigure}[b]{0.19\textwidth}
+    % Première ligne : 3 images
+    \begin{subfigure}[b]{0.3\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{report/figures/cfg_geometry_predict_cond.png}
+        \includegraphics[width=\textwidth]{images/cfg_geometry_predict_cond.png}
         \caption{Prédiction inconditionnelle et conditionnelle}
         \label{fig:cfg_predictions}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.19\textwidth}
+    \begin{subfigure}[b]{0.3\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{report/figures/cfg_geometry_delta.png}
+        \includegraphics[width=\textwidth]{images/cfg_geometry_delta.png}
         \caption{Vecteur "delta" entre les prédictions}
         \label{fig:cfg_delta}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.19\textwidth}
+    \begin{subfigure}[b]{0.3\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{report/figures/cfg_geometry_scale_delta.png}
+        \includegraphics[width=\textwidth]{images/cfg_geometry_scale_delta.png}
         \caption{Vecteur "delta" mis à l'échelle par $\gamma$}
         \label{fig:cfg_scale_delta}
     \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.19\textwidth}
+
+    \vspace{1em} % Espace vertical entre les deux lignes
+
+    % Deuxième ligne : 2 images, centrées
+    \begin{subfigure}[b]{0.3\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{report/figures/cfg_geometry_step.png}
+        \includegraphics[width=\textwidth]{images/cfg_geometry_step.png}
         \caption{Vector de score utilisé pour la mise à jour de $x_t$}
         \label{fig:cfg_step}
     \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.19\textwidth}
+    \hspace{2em} % Espace horizontal entre les deux images du bas
+    \begin{subfigure}[b]{0.3\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{report/figures/cfg_geometry_add_noise.png}
+        \includegraphics[width=\textwidth]{images/cfg_geometry_add_noise.png}
         \caption{Ajout de bruit pour obtenir $x_{t-1}$}
         \label{fig:cfg_add_noise}
     \end{subfigure}
@@ -124,15 +130,21 @@ Nous avons ainsi une intuition géométrique de la CFG, qui nous permet de visua
 
 \section{Application aux DDPMs}
 
-\subsection{Architecture du modèle conditionnel}
+Ayant présenté et donné une intuition géométrique de la Classifier-Free Guidance, nous pouvons maintenant appliquer cette méthode aux modèles de diffusion basés sur les DDPMs. 
+
 \subsection{Intégration des Pas de Temps et des Classes}
+
+
+
 \subsection{Algorithmes : Entraînement et Inférence}
 
 
 \section{Résultats expérimentaux}
 
 \subsection{Qualité de la génération inconditionnelle/conditionnelle sur MNIST}
-\subsection{Impact de l'échelle de \textit{Guidance} ($\gamma$)}
+\subsection{Impact de l'échelle de \textit{Guidance}}
+
+
 
 
 
