@@ -328,9 +328,41 @@ Initialiser l'optimiseur sur les paramètres de $\epsilon_\theta$ et de $E$\;\\
 
 L'algorithme d'entraînement présenté en \ref{alg:cfg_training} suit les étapes classiques d'entraînement d'un DDPM, avec l'ajout de la construction du conditionnement de classe et du dropout de classe pour permettre au modèle d'apprendre à générer des images à la fois conditionnelles et inconditionnelles.\\
 
+\begin{algorithm}[H]
+\DontPrintSemicolon
+\SetAlgoLined
+\textbf{Entrées :} Modèle de diffusion conditionnel $\epsilon_\theta$, table d'embeddings $E$, échelle de guidage $s$, classe cible $y$\;\\
 
+\textbf{Initialisation :}\\
+$x_T \sim \mathcal{N}(0, \mathbf{I})$\\
+Construire la suite de bruitage $\{\alpha_t\}_{t=1}^T$, les produits cumulés $\{\bar{\alpha}_t\}_{t=1}^T$ et les écarts-types $\{\sigma_t\}_{t=1}^T$\;\\
+Construire l'embedding conditionnel $y_{\text{cond}} \leftarrow E[y]$\;\\
+Construire l'embedding inconditionnel $y_{\varnothing} \leftarrow \mathbf{[0, .., 0]}$\;\\
 
+\For{$t = T$ \KwTo $1$}{
+    \textbf{1. Double prédiction du modèle de diffusion :}\\
+    Prédire le bruit conditionnel : $\epsilon_t^{\text{cond}} \leftarrow \epsilon_\theta(x_t,t,y_{\text{cond}})$\;\\
+    Prédire le bruit inconditionnel : $\epsilon_t^{\text{uncond}} \leftarrow \epsilon_\theta(x_t,t,y_{\varnothing})$\;\\
 
+    \textbf{2. Combinaison des prédictions (CFG) :}\\
+    Combiner les deux estimations selon: 
+    $\hat{\epsilon}_t \leftarrow (1+s)\,\epsilon_t^{\text{cond}} - s\,\epsilon_t^{\text{uncond}}$\;\\
+
+    \textbf{3. Échantillonnage de $x_{t-1}$ :}\\
+    Calculer la moyenne $\mu_t$ (selon la formule standard DDPM) :
+    $\mu_t \leftarrow \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}} \hat{\epsilon}_t \right)$\;\\
+    $z \sim \mathcal{N}(0, \mathbf{I})$ si $t > 1$, sinon $z = 0$\;
+    $x_{t-1} \leftarrow \mu_t + \sigma_t z$\;\\
+}
+\vspace{0.2cm}
+\Return $x_0$
+\caption{Échantillonnage avec \textit{Classifier-Free Guidance}}
+\label{alg:cfg_inference}
+\end{algorithm}
+
+L'algorithme d'inférence présenté en \ref{alg:cfg_inference} suit les étapes classiques d'échantillonnage d'un DDPM, avec l'ajout de la double prédiction (conditionnelle et inconditionnelle) et de la combinaison des scores selon la formule de la CFG pour guider le processus de génération vers la classe cible $y$.\\
+
+\underline{Note:} La formule utilisée dans l'algorithme d'inférence pour combiner les scores conditionnel et inconditionnel est une reformulation de la formule \ref{eq:cfg_combined}, où nous avons posé $\gamma = 1 + s$, et appliqué la formule dans le cadre d'un DDPM. Pour $s=0$, nous avons une génération purement conditionnelle, pour $s>0$, nous avons une guidance renforcée, et pour $s<0$, nous avons une guidance atténuée (inconditionnelle pour $s=-1$).\\
 
 
 \section{Résultats expérimentaux}
