@@ -120,6 +120,7 @@ Enfin, l'ajout de bruit pour obtenir $x_{t-1}$ à partir de la prédiction ajust
         \caption{Ajout de bruit pour obtenir $x_{t-1}$}
         \label{fig:cfg_add_noise}
     \end{subfigure}
+
     \caption{Représentation géométrique simplifiée de la Classifier-Free Guidance \cite{dieleman2023}.}
     \label{fig:cfg_geometry}
 \end{figure}
@@ -142,7 +143,7 @@ Il s'agit dans un premier temps d'encoder le pas de temps $t$. L'encodage du pas
 
 Cet encodage permet au modèle d'apprendre à différencier les différentes étapes du processus de diffusion et à ajuster sa prédiction en conséquence. La figure \ref{fig:time_encoding} illustre l'encodage du pas de temps.\\
 
-\begin{figure}
+\begin{figure}[htbp]
 \centering
     \resizebox{0.9\textwidth}{!}{
         \begin{tikzpicture}[node distance=0.8cm, every node/.style={draw, font=\scriptsize, fill=white}]
@@ -203,7 +204,7 @@ L'architecture d'un block de ResNet conditionnel est similaire à celle d'un blo
 
 La figure \ref{fig:resnet_block_cfg} illustre l'architecture d'un block de ResNet conditionnel. Nous avons les mêmes composantes que pour un block de ResNet inconditionnel (convolutions, normalisation, activation), mais avec la notion de modulation des canaux pour intégrer les informations du pas de temps et de la classe.\\
 
-\begin{figure}
+\begin{figure}[htbp]
 \centering
     \resizebox{!}{0.3\paperheight}{
     \begin{tikzpicture}[node distance=0.5cm, every node/.style={font=\scriptsize, thick}]
@@ -290,16 +291,13 @@ Nous avons alors une modulation multiplicative (scale) par le vecteur du pas de 
 
 Ayant présenté l'architecture d'un block de ResNet conditionnel, nous pouvons maintenant détailler les algorithmes d'entraînement et d'inférence pour un DDPM avec Classifier-Free Guidance.\\
 
-
 \begin{algorithm}[H]
 \DontPrintSemicolon
 \SetAlgoLined
 \textbf{Entrées :} Dataset $\mathcal{D}=\{(x_0,y)\}$, modèle de diffusion conditionnel $\epsilon_\theta$, table d'embeddings $E$, probabilité de dropout $p_{\text{uncond}}$\;\\
-
 \textbf{Initialisation :}\\
 Construire la suite de bruitage $\{\alpha_t\}_{t=1}^T$ et les produits cumulés $\{\bar{\alpha}_t\}_{t=1}^T$\;\\
 Initialiser l'optimiseur sur les paramètres de $\epsilon_\theta$ et de $E$\;\\
-
 \For{$epochs = 1$ \KwTo $num\_epochs$}{
     \For{chaque mini-batch $(x_0, y)$}{
     
@@ -307,19 +305,19 @@ Initialiser l'optimiseur sur les paramètres de $\epsilon_\theta$ et de $E$\;\\
         Échantillonner un pas de temps $t \sim \mathcal{U}(\{1,\dots,T\})$\;\\
         Échantillonner un bruit gaussien $\varepsilon \sim \mathcal{N}(0,\mathbf{I})$\;\\
         Construire l'image bruitée :
-        $x_t \leftarrow \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\varepsilon$\;
+        $x_t \leftarrow \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\varepsilon$\;\\
     
         \textbf{2. Construction du conditionnement de classe :}\\
         Récupérer l'embedding de classe : $y_{\text{emb}} \leftarrow E[y]$\;\\
         Échantillonner $u \sim \mathcal{U}(0,1)$\;\\
         \If{$u < p_{\text{uncond}}$}{
             $y_{\text{emb}} \leftarrow \mathbf{0}$
-        }
-    
+        } 
+        \vspace{0.25cm}
         \textbf{3. Prédiction du bruit et apprentissage :}\\
         Prédire le bruit : $\hat{\varepsilon} \leftarrow \epsilon_\theta(x_t,t,y_{\text{emb}})$\;\\
         Calculer la perte : $\mathcal{L} \leftarrow \|\hat{\varepsilon}-\varepsilon\|_2^2$\;\\
-        Mettre à jour les paramètres de $\epsilon_\theta$ et de $E$ par descente de gradient\;\\
+        Mettre à jour les paramètres de $\epsilon_\theta$ et de $E$ par descente de gradient\;
     }
 }
 \caption{Entraînement d'un DDPM avec \textit{Classifier-Free Guidance}}
@@ -328,17 +326,16 @@ Initialiser l'optimiseur sur les paramètres de $\epsilon_\theta$ et de $E$\;\\
 
 L'algorithme d'entraînement présenté en \ref{alg:cfg_training} suit les étapes classiques d'entraînement d'un DDPM, avec l'ajout de la construction du conditionnement de classe et du dropout de classe pour permettre au modèle d'apprendre à générer des images à la fois conditionnelles et inconditionnelles.\\
 
+
 \begin{algorithm}[H]
 \DontPrintSemicolon
 \SetAlgoLined
 \textbf{Entrées :} Modèle de diffusion conditionnel $\epsilon_\theta$, table d'embeddings $E$, échelle de guidage $s$, classe cible $y$\;\\
-
 \textbf{Initialisation :}\\
 $x_T \sim \mathcal{N}(0, \mathbf{I})$\\
 Construire la suite de bruitage $\{\alpha_t\}_{t=1}^T$, les produits cumulés $\{\bar{\alpha}_t\}_{t=1}^T$ et les écarts-types $\{\sigma_t\}_{t=1}^T$\;\\
 Construire l'embedding conditionnel $y_{\text{cond}} \leftarrow E[y]$\;\\
 Construire l'embedding inconditionnel $y_{\varnothing} \leftarrow \mathbf{[0, .., 0]}$\;\\
-
 \For{$t = T$ \KwTo $1$}{
     \textbf{1. Double prédiction du modèle de diffusion :}\\
     Prédire le bruit conditionnel : $\epsilon_t^{\text{cond}} \leftarrow \epsilon_\theta(x_t,t,y_{\text{cond}})$\;\\
@@ -349,7 +346,7 @@ Construire l'embedding inconditionnel $y_{\varnothing} \leftarrow \mathbf{[0, ..
     $\hat{\epsilon}_t \leftarrow (1+s)\,\epsilon_t^{\text{cond}} - s\,\epsilon_t^{\text{uncond}}$\;\\
 
     \textbf{3. Échantillonnage de $x_{t-1}$ :}\\
-    Calculer la moyenne $\mu_t$ (selon la formule standard DDPM) :
+    Calculer la moyenne $\mu_t$ (selon la formule des DDPM) :
     $\mu_t \leftarrow \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}} \hat{\epsilon}_t \right)$\;\\
     $z \sim \mathcal{N}(0, \mathbf{I})$ si $t > 1$, sinon $z = 0$\;
     $x_{t-1} \leftarrow \mu_t + \sigma_t z$\;\\
@@ -366,13 +363,53 @@ L'algorithme d'inférence présenté en \ref{alg:cfg_inference} suit les étapes
 
 \section{Résultats expérimentaux}
 
-Les résultats expérimentaux présentés dans cette section ont été obtenus en appliquant les algorithmes d'entraînement et d'inférence détaillés précédemment à un modèle de diffusion avec Classifier-Free Guidance, suivant les configurations d'architecture définies précédemment, sur le dataset MNIST.\\
+Les résultats expérimentaux présentés dans cette section ont été obtenus en appliquant les algorithmes d'entraînement et d'inférence détaillés précédemment à un modèle de diffusion avec Classifier-Free Guidance, suivant les configurations d'architecture définies précédemment, sur le dataset MNIST. Le modèle a été entraîné pendant 120 epochs, avec un batch size de 128, et une probabilité de dropout de classe de 0.2.\\
 
 \subsection{Qualité de la génération inconditionnelle/conditionnelle sur MNIST}
 
+Nous avons évalué la qualité de la génération à la fois en mode inconditionnel (sans conditionnement de classe, $s=-1$) et en mode conditionnel (avec conditionnement de classe, $s=0$), en générant des échantillons à partir du modèle entraîné. 
 
+La figure \ref{fig:cfg_results} présente ces résultats.
 
-\subsection{Impact de l'échelle de \textit{Guidance}}
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/guided_unet_5___five_s-1.0.png}
+        \caption{$s=-1$}
+        \label{fig:cfg_uncond}
+    \end{subfigure}%
+    \hfill
+    \begin{subfigure}[b]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/guided_unet_5___five_s-0.5.png}
+        \caption{$s=-0.5$}
+        \label{fig:cfg_uncond_cond}
+    \end{subfigure}%
+    \hfill
+    \begin{subfigure}[b]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/guided_unet_5___five_s0.0.png}
+        \caption{$s=0$}
+        \label{fig:cfg_cond0}
+    \end{subfigure}%
+    \hfill
+    \begin{subfigure}[b]{0.23\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/guided_unet_5___five_s3.0.png}
+        \caption{$s=3$}
+        \label{fig:cfg_cond3}
+    \end{subfigure}
+    
+    \caption{Exemples d'images générées par un DDPM avec Classifier-Free Guidance (classe 5).}
+    \label{fig:cfg_results}
+\end{figure}
 
+La figure \ref{fig:cfg_results} montre que le modèle est capable de générer des images réalistes à la fois en mode inconditionnel (figure \ref{fig:cfg_uncond}) et en mode conditionnel (figure \ref{fig:cfg_cond0}, \ref{fig:cfg_cond3}). En mode inconditionnel, les images générées sont variées et ne correspondent pas à une classe spécifique, tandis qu'en mode conditionnel, les images générées sont clairement reconnaissables comme appartenant à la classe 5. De plus, en augmentant l'échelle de guidance ($s=3$), nous observons que les images générées sont encore plus conformes à la classe cible, au prix d'une diversité légèrement réduite.\\
+
+En revanche, en mode "semi"-conditionnel ($s=-0.5$), nous observons un semblant d'entre-deux, où les images générées présentent des caractéristiques de la classe 5, mais ne sont pas aussi nettes et reconnaissables que dans le mode conditionnel pur ($s=0$). Les images générées sont dans un espace intermédiaire et qui se trouve à priori ni dans la région de l'espace des images correspondant à la classe 5, ni dans la région correspondant à une génération inconditionnelle. Nous avons donc une génération qui est à la fois influencée par la classe cible, mais aussi par les caractéristiques générales des images du dataset, mais où les images perdent en qualité et en réalisme.\\
+
+\underline{Note:} Nous avons également entrainé un modèle de diffusion conditionnel avec Classifier-Free Guidance sur le dataset CIFAR-10. L'entraînement a été réalisé pendant 300 epochs, avec un batch size de 128, et une probabilité de dropout de classe de 0.2. 
+Les résultats obtenus sont donnés en annexe \ref{appendix:cfg_cifar10}, et présentent les limites du modèle, qui parvient à générer des images reconnaissables à première vue, mais qui présentent des artefacts et une qualité globale inférieure à celle obtenue sur MNIST. Si nous ne pouvons nous attendre à des images générées de très haute qualité (les images du dataset restent de taille 32x32, et donc de qualité limitée), nous pouvons néanmoins observer que le modèle est capable de générer des images qui sont reconnaissables comme appartenant à la classe cible, ce qui montre que la Classifier-Free Guidance fonctionne également sur ce dataset plus complexe.Il serait cependant pertinent de considérer une architecture plus complexe (par exemple, en augmentant la profondeur du modèle) pour améliorer la qualité des images générées sur ce dataset (ou d'autres, du type ImageNet).\\
 
 
