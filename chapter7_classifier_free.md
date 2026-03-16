@@ -364,10 +364,14 @@ L'algorithme d'inférence présenté en \ref{alg:cfg_inference} suit les étapes
 
 \underline{Note:} La formule utilisée dans l'algorithme d'inférence pour combiner les scores conditionnel et inconditionnel est une reformulation de la formule \ref{eq:cfg_combined}, où nous avons posé $\gamma = 1 + s$, et appliqué la formule dans le cadre d'un DDPM. Pour $s=0$, nous avons une génération purement conditionnelle, pour $s>0$, nous avons une guidance renforcée, et pour $s<0$, nous avons une guidance atténuée (inconditionnelle pour $s=-1$).\\
 
-
 \section{Résultats expérimentaux}
 
+Les résultats expérimentaux présentés dans cette section ont été obtenus en appliquant les algorithmes d'entraînement et d'inférence détaillés précédemment à un modèle de diffusion avec Classifier-Free Guidance, suivant les configurations d'architecture définies précédemment, sur le dataset MNIST.\\
+
 \subsection{Qualité de la génération inconditionnelle/conditionnelle sur MNIST}
+
+
+
 \subsection{Impact de l'échelle de \textit{Guidance}}
 
 
