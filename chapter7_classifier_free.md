@@ -142,7 +142,8 @@ Il s'agit dans un premier temps d'encoder le pas de temps $t$. L'encodage du pas
 
 Cet encodage permet au modèle d'apprendre à différencier les différentes étapes du processus de diffusion et à ajuster sa prédiction en conséquence. La figure \ref{fig:time_encoding} illustre l'encodage du pas de temps.\\
 
-\begin{center}
+\begin{figure}
+\centering
     \resizebox{0.9\textwidth}{!}{
         \begin{tikzpicture}[node distance=0.8cm, every node/.style={draw, font=\scriptsize, fill=white}]
             \node[circle, fill=gray!10] (t) {$t$};
@@ -154,7 +155,7 @@ Cet encodage permet au modèle d'apprendre à différencier les différentes ét
     }
     \caption{Schéma de l'encodage du pas de temps dans un DDPM conditionnel.}
     \label{fig:time_encoding}
-\end{center}
+\end{figure}
 
 L'encodage positionnel du pas de temps est défini de la manière suivante :\\
 \begin{equation}
@@ -172,25 +173,29 @@ L'encodage de la classe (ou de la condition $y$ plus généralement), quant à l
 
 La figure \ref{fig:class_encoding} illustre l'encodage de la classe.\\
 
-\begin{center}
-    \resizebox{0.8\textwidth}{!}{
-        \begin{tikzpicture}[node distance=1cm, every node/.style={draw, font=\scriptsize}]
+\begin{figure}[htpb]
+\centering
+    \resizebox{0.8\textwidth}{!}{%
+        \begin{tikzpicture}[node distance=1cm, every node/.style={draw, font=\scriptsize, align=center}]
             \node[fill=gray!10] (y) {$y$ (classe)};
             \node[fill=blue!5, right=of y] (emb) {Table d'embeddings\\nn.Embedding (10, 512)};
-            \node[diamond, fill=red!5, right=of emb, aspect=1.5] (drop) {Dropout de classe\\P(dropout)=0.2};
+            \node[fill=red!5, right=of emb, aspect=1.5] (drop) {Dropout de classe\\P(dropout)=0.2};
             \node[rounded corners, fill=green!10, right=of drop] (out) {Vecteur $y_{emb}$ (512)};
-            \draw[-{Stealth}, thick] (y) -- (emb); \draw[-{Stealth}, thick] (emb) -- (drop); \draw[-{Stealth}, thick] (drop) -- (out);
-        \end{tikzpicture}
+            
+            \draw[-{Stealth}, thick] (y) -- (emb); 
+            \draw[-{Stealth}, thick] (emb) -- (drop); 
+            \draw[-{Stealth}, thick] (drop) -- (out);
+        \end{tikzpicture}%
     }
-    \caption{Schéma de l'encodage de la classe dans un DDPM conditionnel.}
+    \caption{Schéma de l'encodage de la classe dans un DDPM avec Classifier-Free Guidance.}
     \label{fig:class_encoding}
-\end{center}
+\end{figure}
 
 Nous avons alors un vecteur d'embedding de classe $y_{emb}$ de dimension 512, qui est injecté dans les différentes "couches" du modèle de diffusion, de la même manière que le vecteur d'encodage du pas de temps.\\
 
-\underline{Note:} Notons que dans notre implémentation, nous avons choisi d'appliquer un dropout de classe avec une probabilité de 0.2, ce qui signifie que 20\% des exemples présentés au modèle pendant l'entraînement sont inconditionnels (avec un token nul pour la classe), tandis que les 80\% restants sont conditionnels (avec la classe associée). Avec un dataset de taille suffisante, ce ratio permet au modèle d'apprendre à générer des images réalistes à la fois avec et sans conditionnement, ce qui est essentiel pour le bon fonctionnement de la Classifier-Free Guidance.\\
+Notons que dans notre implémentation, nous avons choisi d'appliquer un dropout de classe avec une probabilité de 0.2, ce qui signifie que 20\% des exemples présentés au modèle pendant l'entraînement sont inconditionnels (avec un token nul pour la classe), tandis que les 80\% restants sont conditionnels (avec la classe associée). Avec un dataset de taille suffisante, ce ratio permet au modèle d'apprendre à générer des images réalistes à la fois avec et sans conditionnement, ce qui est essentiel pour le bon fonctionnement de la Classifier-Free Guidance.\\
 
-\underline{Note 2:} Précisons que les paramètres de la table de correspondance des classes (les embeddings) sont appris conjointement avec les autres paramètres du modèle de diffusion pendant l'entraînement, ce qui permet au modèle d'apprendre des représentations de classe adaptées à la tâche de génération.\\
+Précisons aussi que les paramètres de la table de correspondance des classes (les embeddings) sont appris conjointement avec les autres paramètres du modèle de diffusion pendant l'entraînement, ce qui permet au modèle d'apprendre des représentations de classe adaptées à la tâche de génération.\\
 
 \subsubsection{Architecture d'un block de ResNet conditionnel}
 
@@ -198,8 +203,9 @@ L'architecture d'un block de ResNet conditionnel est similaire à celle d'un blo
 
 La figure \ref{fig:resnet_block_cfg} illustre l'architecture d'un block de ResNet conditionnel. Nous avons les mêmes composantes que pour un block de ResNet inconditionnel (convolutions, normalisation, activation), mais avec la notion de modulation des canaux pour intégrer les informations du pas de temps et de la classe.\\
 
-\begin{center}
-    \resizebox{!}{0.7\paperheight}{
+\begin{figure}
+\centering
+    \resizebox{!}{0.3\paperheight}{
     \begin{tikzpicture}[node distance=0.5cm, every node/.style={font=\scriptsize, thick}]
         % --- CHEMIN PRINCIPAL ---
         \node (in) {Entrée $x$ ($C_{in}$)};
@@ -224,7 +230,7 @@ La figure \ref{fig:resnet_block_cfg} illustre l'architecture d'un block de ResNe
         \draw[<-] (y_prj.east) -- ++(0.3,0) node[right, font=\tiny] {$y_{emb}$};
 
         % --- CHEMIN RÉSIDUEL (À gauche) ---
-        \node[draw, fill=gray!10, left=1.2cm of mult, font=\tiny, text width=2.2cm, align=center] (res_proj) {
+        \node[draw, fill=gray!10, left=1.2cm of mult, font=\tiny, text width=2.5cm, align=center] (res_proj) {
             \begin{tabular}{c} 
                 Skip Connection \\ 
                 (Linear Projection) 
@@ -249,13 +255,13 @@ La figure \ref{fig:resnet_block_cfg} illustre l'architecture d'un block de ResNe
         % 1. Part de la GAUCHE (west) de x
         % 2. Descend et contourne pour arriver sur le haut du bloc gris (res_proj)
         % 3. Sort par le bas (south) vers le bloc d'addition finale
-        \draw[-{Stealth}] (in.west) -- ++(-1.825,0) -- (res_proj.north);
+        \draw[-{Stealth}] (in.west) -- ++(-1.8,0) -- (res_proj.north);
         \draw[-{Stealth}] (res_proj.south) |- (plus_res.west);
     \end{tikzpicture}
     }
     \caption{Architecture d'un block de ResNet conditionnel pour un DDPM avec Classifier-Free Guidance.}
     \label{fig:resnet_block_cfg}
-\end{center}
+\end{figure}
 
 Si le fonctionnement du block de ResNet conditionnel est similaire à celui d'un block de ResNet inconditionnel, l'ajout de mécanismes pour intégrer les informations du pas de temps et de la classe (équation \ref{eq:resnet_modulation}) permet au modèle de moduler les canaux de manière conditionnelle, de manière à extraire des caractéristiques spécifiques à la classe et au niveau de bruit présent dans l'image à chaque étape du processus de diffusion.\\
 
@@ -271,6 +277,8 @@ avec:
     \item $y_{prj}$ est le vecteur obtenu à partir de l'encodage de la classe, projeté à la dimension des canaux du block.
 \end{itemize} 
 
+Nous avons alors une modulation multiplicative (scale) par le vecteur du pas de temps, qui permet au modèle d'ajuster l'intensité des caractéristiques extraites en fonction du niveau de bruit présent dans l'image, et une modulation additive (shift) par le vecteur de la classe, qui permet au modèle d'ajuster les caractéristiques extraites, en fonction de la classe à laquelle l'image doit appartenir (nous pourrions imaginer que le conditionnement de classe "pousse" vers une région spécifique de l'espace des images).\\
+
 \underline{Note:} Notons plusieurs aspects importants concernant l'architecture du block de ResNet en figure \ref{fig:resnet_block_cfg} :
 \begin{itemize}
     \item Nous avons une skip connection (chemin résiduel) qui permet de faire passer l'entrée $x$ directement à la sortie du block, ce qui stabilise l'entraînement.
@@ -282,62 +290,53 @@ avec:
 
 Ayant présenté l'architecture d'un block de ResNet conditionnel, nous pouvons maintenant détailler les algorithmes d'entraînement et d'inférence pour un DDPM avec Classifier-Free Guidance.\\
 
-\begin{figure}[htbp]
-\centering
-\begin{minipage}[t]{0.48\textwidth}
-\captionsetup{type=algorithm}
-\caption{Entraînement DDPM + CFG}
+
+\begin{algorithm}[H]
+\DontPrintSemicolon
+\SetAlgoLined
+\textbf{Entrées :} Dataset $\mathcal{D}=\{(x_0,y)\}$, modèle de diffusion conditionnel $\epsilon_\theta$, table d'embeddings $E$, probabilité de dropout $p_{\text{uncond}}$\;\\
+
+\textbf{Initialisation :}\\
+Construire la suite de bruitage $\{\alpha_t\}_{t=1}^T$ et les produits cumulés $\{\bar{\alpha}_t\}_{t=1}^T$\;\\
+Initialiser l'optimiseur sur les paramètres de $\epsilon_\theta$ et de $E$\;\\
+
+\For{$epochs = 1$ \KwTo $num\_epochs$}{
+    \For{chaque mini-batch $(x_0, y)$}{
+    
+        \textbf{1. Construction d'un exemple bruité :}\\
+        Échantillonner un pas de temps $t \sim \mathcal{U}(\{1,\dots,T\})$\;\\
+        Échantillonner un bruit gaussien $\varepsilon \sim \mathcal{N}(0,\mathbf{I})$\;\\
+        Construire l'image bruitée :
+        $x_t \leftarrow \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\varepsilon$\;
+    
+        \textbf{2. Construction du conditionnement de classe :}\\
+        Récupérer l'embedding de classe : $y_{\text{emb}} \leftarrow E[y]$\;\\
+        Échantillonner $u \sim \mathcal{U}(0,1)$\;\\
+        \If{$u < p_{\text{uncond}}$}{
+            $y_{\text{emb}} \leftarrow \mathbf{0}$
+        }
+    
+        \textbf{3. Prédiction du bruit et apprentissage :}\\
+        Prédire le bruit : $\hat{\varepsilon} \leftarrow \epsilon_\theta(x_t,t,y_{\text{emb}})$\;\\
+        Calculer la perte : $\mathcal{L} \leftarrow \|\hat{\varepsilon}-\varepsilon\|_2^2$\;\\
+        Mettre à jour les paramètres de $\epsilon_\theta$ et de $E$ par descente de gradient\;\\
+    }
+}
+\caption{Entraînement d'un DDPM avec \textit{Classifier-Free Guidance}}
 \label{alg:cfg_training}
-\begin{algorithmic}[1]
-\Require Dataset $\mathcal{D}$, modèle $\epsilon_\theta$, embedding $\mathbf{E}$, $T$, $p_{\text{uncond}}$
-\State Construire $\alpha_t$, $\bar{\alpha}_t=\prod_{i=0}^{t}\alpha_i$
-\For{chaque mini-lot $(x_0,y)$}
-    \State Échantillonner $t\sim\mathcal{U}(\{0,\dots,T-1\})$, $\varepsilon\sim\mathcal{N}(0,\mathbf{I})$
-    \State $x_t \gets \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\varepsilon$
-    \State $y_{\text{emb}} \gets \mathbf{E}[y]$
-    \State $m\sim\mathrm{Bernoulli}(1-p_{\text{uncond}})$
-    \State $y_{\text{emb}} \gets m\odot y_{\text{emb}}$ \Comment{dropout de classe}
-    \State $\hat{\varepsilon}\gets \epsilon_\theta(x_t,t,y_{\text{emb}})$
-    \State $\mathcal{L}\gets \|\hat{\varepsilon}-\varepsilon\|_2^2$
-    \State Mise à jour de $(\theta,\mathbf{E})$ par Adam
-\EndFor
-\end{algorithmic}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\textwidth}
-\captionsetup{type=algorithm}
-\caption{Inférence DDPM + CFG}
-\label{alg:cfg_inference}
-\begin{algorithmic}[1]
-\Require Modèle entraîné $\epsilon_\theta$, embedding $\mathbf{E}$, classe $y$, guidance $s$, $T$
-\State Construire $\alpha_t$, $\bar{\alpha}_t$
-\State Calculer $\sigma_t^2=\frac{(1-\alpha_t)(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}$, avec $\bar{\alpha}_{-1}=1$
-\State $x_T\sim\mathcal{N}(0,\mathbf{I})$
-\State $y_{\text{cond}}\gets \mathbf{E}[y]$, \quad $y_{\varnothing}\gets \mathbf{0}$
-\For{$t=T-1$ \textbf{to} $0$}
-    \State $\hat{\varepsilon}_{c}\gets \epsilon_\theta(x_t,t,y_{\text{cond}})$
-    \State $\hat{\varepsilon}_{u}\gets \epsilon_\theta(x_t,t,y_{\varnothing})$
-    \State $\hat{\varepsilon}\gets (1+s)\hat{\varepsilon}_{c}-s\hat{\varepsilon}_{u}$
-    \If{$t>0$}
-        \State $z\sim\mathcal{N}(0,\mathbf{I})$
-    \Else
-        \State $z\gets \mathbf{0}$
-    \EndIf
-    \State $x_{t-1}\gets \frac{1}{\sqrt{\alpha_t}}\!\left(x_t-\frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}}\hat{\varepsilon}\right)+\sigma_t z$
-\EndFor
-\State \Return $x_0$
-\end{algorithmic}
-\end{minipage}
-\caption{Pseudo-code de l'entraînement et de l'inférence pour la Classifier-Free Guidance.}
-\label{fig:cfg_algorithms_side_by_side}
-\end{figure}
+\end{algorithm}
+
+L'algorithme d'entraînement présenté en \ref{alg:cfg_training} suit les étapes classiques d'entraînement d'un DDPM, avec l'ajout de la construction du conditionnement de classe et du dropout de classe pour permettre au modèle d'apprendre à générer des images à la fois conditionnelles et inconditionnelles.\\
+
+
+
+
+
 
 \section{Résultats expérimentaux}
 
 \subsection{Qualité de la génération inconditionnelle/conditionnelle sur MNIST}
 \subsection{Impact de l'échelle de \textit{Guidance}}
-
-
 
 
 
