@@ -139,34 +139,7 @@ En termes d'implémentation, le DDPM conditionnel n'est pas très différent du 
 
 \subsubsection{Encodage du Pas de Temps}
 
-Il s'agit dans un premier temps d'encoder le pas de temps $t$. L'encodage du pas de temps est une étape cruciale, car il permet au modèle de diffusion de prendre en compte le niveau de bruit présent dans l'image à chaque étape du processus de génération. De la même façon que pour les DDPMs inconditionnels, nous utilisons un encodage sinusoïdal (positional encoding, noté $PE(t)$ dans la suite) pour représenter le pas de temps $t$. Cet encodage est ensuite transformé à l'aide d'un MLP (Linear + SiLU + Linear) pour obtenir un vecteur de dimension 512, qui est ensuite injecté dans les différents blocks de ResNet du modèle. \\
-
-Cet encodage permet au modèle d'apprendre à différencier les différentes étapes du processus de diffusion et à ajuster sa prédiction en conséquence. La figure \ref{fig:time_encoding} illustre l'encodage du pas de temps.\\
-
-\begin{figure}[htbp]
-\centering
-    \resizebox{0.9\textwidth}{!}{
-        \begin{tikzpicture}[node distance=0.8cm, every node/.style={draw, font=\scriptsize, fill=white}]
-            \node[circle, fill=gray!10] (t) {$t$};
-            \node[rectangle, fill=orange!10, right=of t] (pe) {Encodage Sinusoïdal, $PE(t)$};
-            \node[rectangle, fill=blue!5, right=of pe, align=center] (mlp) {MLP\\(Linear + SiLU + Linear)};
-            \node[rectangle, rounded corners, fill=green!10, right=of mlp] (out) {Vecteur (512)};
-            \draw[-{Stealth}, thick] (t) -- (pe); \draw[-{Stealth}, thick] (pe) -- (mlp); \draw[-{Stealth}, thick] (mlp) -- (out);
-        \end{tikzpicture}
-    }
-    \caption{Schéma de l'encodage du pas de temps dans un DDPM conditionnel.}
-    \label{fig:time_encoding}
-\end{figure}
-
-L'encodage positionnel du pas de temps est défini de la manière suivante :\\
-\begin{equation}
-PE(t)_{2i} = \sin\left(\frac{t}{10000^{2i/d}}\right), \quad PE(t)_{2i+1} = \cos\left(\frac{t}{10000^{2i/d}}\right)
-\label{eq:positional_encoding}
-\end{equation}
-où $d$ est la dimension du vecteur d'encodage (dans notre cas, 512), et $i$ est l'indice de la dimension. 
-
-L'intérêt d'appliquer un MLP à cet encodage sinusoïdal est de permettre au modèle d'apprendre une représentation plus riche et adaptée du pas de temps, suffisamment grande pour être réduite (si nécessaire) et injectée dans les différentes "couches" du modèle de diffusion.\\
-
+L'encodage du pas de temps se fait de la même façon que pour l'implémentation du DDPM présentée dans le chapitre 3. Nous utilisons une fonction d'encodage sinusoïdale pour transformer le pas de temps $t$ en un vecteur d'embedding de dimension 512, qui est ensuite projeté à la dimension des canaux du modèle de diffusion et injecté dans les blocks de ResNet.\\
 
 \subsubsection{Encodage de la Classe}
 
@@ -364,6 +337,8 @@ L'algorithme d'inférence présenté en \ref{alg:cfg_inference} suit les étapes
 \section{Résultats expérimentaux}
 
 Les résultats expérimentaux présentés dans cette section ont été obtenus en appliquant les algorithmes d'entraînement et d'inférence détaillés précédemment à un modèle de diffusion avec Classifier-Free Guidance, suivant les configurations d'architecture définies précédemment, sur le dataset MNIST. Le modèle a été entraîné pendant 120 epochs, avec un batch size de 128, et une probabilité de dropout de classe de 0.2.\\
+
+L'implémentation a été réalisée en PyTorch, et se base sur une implémentation de \textit{T. Matsuzaki} \cite{tsmatz_cfg}, que nous avons adaptée et modifiée pour notre projet.\\
 
 \subsection{Qualité de la génération inconditionnelle/conditionnelle sur MNIST}
 
