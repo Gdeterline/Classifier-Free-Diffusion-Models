@@ -71,5 +71,5 @@ def plot_class_distribution(dataset: str = 'mnist', save: bool = False) -> None:
     
     
 if __name__ == "__main__":
-    plot_image_grid(dataset='mnist', num_row=10, num_col=10, save=True)
-    plot_class_distribution(dataset='mnist', save=True)
+    plot_image_grid(dataset='cifar10', num_row=10, num_col=10, save=True)
+    #plot_class_distribution(dataset='mnist', save=True)
