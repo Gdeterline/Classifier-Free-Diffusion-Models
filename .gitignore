@@ -3,3 +3,4 @@ __pycache__/
 data
 venv
 src/models/saved/
+notes_cr.md
