@@ -254,7 +254,7 @@ L'intérêt d'appliquer un MLP à cet encodage sinusoïdal est de permettre au m
 
 \subsubsection{Blocks ResNet}
 
-Afin de prendre en compte le pas de temps dans les différentes étapes du processus de diffusion, on applique une fonction $SiLU$ (Sigmoid Linear Unit) à la sortie du MLP, puis une couche linéaire finale pour projeter ce vecteur d'encodage du pas de temps à la dimension des canaux du modèle de diffusion (par exemple, 128 ou 256 canaux). ALors, ce vecteur projeté (noté $t_{prj}$) est injecté dans les différents blocks de ResNet du modèle. Cette injection se fait généralement par addition (c'est-à-dire suivant la formule $out = out + t_prj$), ce qui permet au modèle de diffusion d'apprendre à ajuster sa prédiction en fonction du niveau de bruit présent dans l'image à chaque étape du processus de génération.\\
+Afin de prendre en compte le pas de temps dans les différentes étapes du processus de diffusion, on applique une fonction $SiLU$ (Sigmoid Linear Unit) à la sortie du MLP, puis une couche linéaire finale pour projeter ce vecteur d'encodage du pas de temps à la dimension des canaux du modèle de diffusion (par exemple, 128 ou 256 canaux). Alors, ce vecteur projeté (noté $t_{prj}$) est injecté dans les différents blocks de ResNet du modèle. Cette injection se fait généralement par addition (c'est-à-dire suivant la formule $out = out + t_prj$), ce qui permet au modèle de diffusion d'apprendre à ajuster sa prédiction en fonction du niveau de bruit présent dans l'image à chaque étape du processus de génération.\\
 
 La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilisé dans le modèle de diffusion, avec l'injection du pas de temps projeté.\\
 
@@ -312,6 +312,7 @@ La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilis
     \caption{Architecture d'un block de ResNet pour un DDPM.}
     \label{fig:resnet_block_ddpm}
 \end{figure}
+
 
 \subsubsection{Attention Blocks}
 
