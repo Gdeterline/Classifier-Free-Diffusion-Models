@@ -108,14 +108,13 @@ Cette formulation montre qu'au lieu de prédire la moyenne de la distribution, l
 L_{simple}(\theta) = \mathbb{E}_{x_0, t, \epsilon} \left[ \left\| \epsilon - \epsilon_\theta(\sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon, t) \right\|^2 \right]
 \end{equation}
 
-Dans le modèle DDPM original \cite{Ho2020}, la variance $\Sigma_\theta$ est maintenue fixe, et le réseau n'apprend que la moyenne.
+Dans le modèle DDPM original \cite{Ho2020}, la variance $\Sigma_\theta$ est maintenue fixe, et le réseau n'apprend que la moyenne.\\
 
-% Transition vers implémentation
-
+Ayant présenté les principes de base des modèles de diffusion, et plus particulièrement des DDPM, nous pouvons désormais aborder leur implémentation.\\
 
 \section{Implémentation d'un DDPM}
 
-Ayant présenté les principes de base des modèles de diffusion, et plus particulièrement des DDPM, nous pouvons désormais aborder leur implémentation.\\
+L'implémentation d'un DDPM repose sur plusieurs éléments clés, notamment l'architecture du modèle, l'influence du pas de temps, les blocks de ResNet et d'Attention, ainsi que les algorithmes d'entraînement et d'inférence.\\
 
 \subsection{Architecture du modèle}
 
@@ -303,10 +302,21 @@ La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilis
     \label{fig:resnet_block_ddpm}
 \end{figure}
 
-
 \subsubsection{Attention Blocks}
 
+Si nous nous référons à la figure \ref{fig:unet}, nous pouvons observer qu'en plus des blocks de ResNet, le modèle de diffusion intègre également des blocks d'Attention à certains endroits stratégiques de l'architecture (notamment dans les étapes intermédiaires du U-Net). Ces blocks d'Attention permettent au modèle de diffusion de capturer les dépendances à long terme dans l'image, ce qui est crucial pour générer des images cohérentes et de haute qualité.\\
+
+% La figure \ref{fig:attention_block_ddpm} illustre un block d'Attention typique utilisé dans le modèle de diffusion.\\
+
+[FIGURE À AJOUTER]
+
+Ces blocks d'Attention sont basés sur le mécanisme d'Attention multi-têtes (Multi-Head Attention), et permettent au modèle de diffusion de se concentrer sur différentes parties de l'image à chaque étape du processus de génération, améliorant ainsi la qualité et la cohérence des images générées. Notons que l'architecture ne contient qu'un nombre restreint de blocks d'Attention, et qui sont ne sont pas placés aux étapes les plus proches de l'entrée ou de la sortie du U-Net, mais plutôt dans les étapes intermédiaires (et dans le bottleneck), afin de capturer les dépendances à long terme, sans pour autant augmenter démesurément la complexité du modèle.\\
+
+Ayant présenté les composants clés de l'architecture d'un DDPM, nous pouvons désormais donner les algorithmes d'entraînement et d'inférence associés à ce modèle.\\
+
 \subsection{Algorithmes : Entraînement et Inférence}
+
+La figure \ref{fig:ddpm_algos_combined} présente les algorithmes d'entraînement et d'inférence d'un DDPM, tels que décrits dans l'article original de \cite{Ho2020}. La suite de notre étude se base sur ces algorithmes, toutefois modifiés pour intégrer l'aspect de conditionnement sur des classes d'images (ie. pour implémenter un modèle de diffusion conditionnel).\\
 
 \begin{figure}[htbp]
     \centering
@@ -314,3 +324,4 @@ La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilis
         \caption*{Algorithmes d'entraînement et d'échantillonnage des DDPM.\cite{Ho2020}}
     \label{fig:ddpm_algos_combined}
 \end{figure}
+
