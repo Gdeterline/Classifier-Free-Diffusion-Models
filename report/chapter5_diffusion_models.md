@@ -108,20 +108,10 @@ Cette formulation montre qu'au lieu de prédire la moyenne de la distribution, l
 L_{simple}(\theta) = \mathbb{E}_{x_0, t, \epsilon} \left[ \left\| \epsilon - \epsilon_\theta(\sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon, t) \right\|^2 \right]
 \end{equation}
 
-Dans le modèle DDPM original, la variance $\Sigma_\theta$ est maintenue fixe, et le réseau n'apprend que la moyenne.
-\newpage
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=\linewidth]{images/training-sampling-ddpm.png}
-        \caption*{Algorithmes d'entraînement et d'échantillonnage des DDPM.\cite{Ho2020}}
-    \label{fig:ddpm_algos_combined}
-\end{figure}
+Dans le modèle DDPM original \cite{Ho2020}, la variance $\Sigma_\theta$ est maintenue fixe, et le réseau n'apprend que la moyenne.
 
+% Transition vers implémentation
 
-
-
-
-% -------------------------------------------------------------
 
 \section{Implémentation d'un DDPM}
 
@@ -317,3 +307,10 @@ La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilis
 \subsubsection{Attention Blocks}
 
 \subsection{Algorithmes : Entraînement et Inférence}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/training-sampling-ddpm.png}
+        \caption*{Algorithmes d'entraînement et d'échantillonnage des DDPM.\cite{Ho2020}}
+    \label{fig:ddpm_algos_combined}
+\end{figure}
