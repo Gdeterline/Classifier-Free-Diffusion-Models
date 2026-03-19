@@ -344,49 +344,47 @@ L'implémentation a été réalisée en PyTorch, et se base sur une implémentat
 
 \subsection{Qualité de la génération inconditionnelle/conditionnelle sur MNIST}
 
-Nous avons évalué la qualité de la génération à la fois en mode inconditionnel (sans conditionnement de classe, $s=-1$) et en mode conditionnel (avec conditionnement de classe, $s=0$), en générant des échantillons à partir du modèle entraîné. 
-
-La figure \ref{fig:cfg_results} présente ces résultats.
+Nous avons évalué la qualité de la génération à la fois en mode inconditionnel (sans conditionnement de classe, $s=-1$) et en mode conditionnel (avec conditionnement de classe, pour la classe 5, $s=0$), en générant des échantillons à partir du modèle entraîné. 
 
 \begin{figure}[htbp]
     \centering
-    \begin{subfigure}[b]{0.23\textwidth}
+    \begin{subfigure}[b]{0.25\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/guided_unet_5___five_s-1.0.png}
-        \caption{$s=-1$}
+        \caption{Classe $\emptyset$ | $s=-1$}
         \label{fig:cfg_uncond}
     \end{subfigure}%
     \hfill
-    \begin{subfigure}[b]{0.23\textwidth}
+    \begin{subfigure}[b]{0.25\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/guided_unet_5___five_s-0.5.png}
-        \caption{$s=-0.5$}
+        \caption{Classe 5 | $s=-0.5$}
         \label{fig:cfg_uncond_cond}
     \end{subfigure}%
     \hfill
-    \begin{subfigure}[b]{0.23\textwidth}
+    \begin{subfigure}[b]{0.25\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/guided_unet_5___five_s0.0.png}
-        \caption{$s=0$}
+        \caption{Classe 5 | $s=0$}
         \label{fig:cfg_cond0}
     \end{subfigure}%
     \hfill
-    \begin{subfigure}[b]{0.23\textwidth}
+    \begin{subfigure}[b]{0.25\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{images/guided_unet_5___five_s3.0.png}
-        \caption{$s=3$}
-        \label{fig:cfg_cond3}
+        \includegraphics[width=\textwidth]{images/guided_unet_5___five_s10.0.png}
+        \caption{Classe 5 | $s=10$}
+        \label{fig:cfg_cond10}
     \end{subfigure}
-    
+
     \caption{Exemples d'images générées par un DDPM avec Classifier-Free Guidance (classe 5).}
     \label{fig:cfg_results}
 \end{figure}
 
-La figure \ref{fig:cfg_results} montre que le modèle est capable de générer des images réalistes à la fois en mode inconditionnel (figure \ref{fig:cfg_uncond}) et en mode conditionnel (figure \ref{fig:cfg_cond0}, \ref{fig:cfg_cond3}). En mode inconditionnel, les images générées sont variées et ne correspondent pas à une classe spécifique, tandis qu'en mode conditionnel, les images générées sont clairement reconnaissables comme appartenant à la classe 5. De plus, en augmentant l'échelle de guidance ($s=3$), nous observons que les images générées sont encore plus conformes à la classe cible, au prix d'une diversité légèrement réduite.\\
+La figure \ref{fig:cfg_results} montre que le modèle est capable de générer des images réalistes à la fois en mode inconditionnel (figure \ref{fig:cfg_uncond}) et en mode conditionnel (figure \ref{fig:cfg_cond0}, \ref{fig:cfg_cond3}). En mode inconditionnel, les images générées sont variées et ne correspondent pas à une classe spécifique, tandis qu'en mode conditionnel, les images générées sont clairement reconnaissables comme appartenant à la classe 5. En augmentant encore davantage le facteur d'échelle de guidage (figure \ref{fig:cfg_cond10}, $s=10$), nous observons que les images générées sont encore plus fortement guidées vers la classe 5, mais au prix d'une perte de diversité: les images générées sont très similaires les unes aux autres, et peuvent presque sembler saturées par les caractéristiques de la classe 5 (les traits sont très épais et marqués afin de maximiser la reconnaissance de la classe 5).\\
 
 En revanche, en mode "semi"-conditionnel ($s=-0.5$), nous observons un semblant d'entre-deux, où les images générées présentent des caractéristiques de la classe 5, mais ne sont pas aussi nettes et reconnaissables que dans le mode conditionnel pur ($s=0$). Les images générées sont dans un espace intermédiaire et qui se trouve à priori ni dans la région de l'espace des images correspondant à la classe 5, ni dans la région correspondant à une génération inconditionnelle. Nous avons donc une génération qui est à la fois influencée par la classe cible, mais aussi par les caractéristiques générales des images du dataset, mais où les images perdent en qualité et en réalisme.\\
 
 \underline{Note:} Nous avons également entrainé un modèle de diffusion conditionnel avec Classifier-Free Guidance sur le dataset CIFAR-10. L'entraînement a été réalisé pendant 300 epochs, avec un batch size de 128, et une probabilité de dropout de classe de 0.2. 
-Les résultats obtenus sont donnés en annexe \ref{appendix:cfg_cifar10}, et présentent les limites du modèle, qui parvient à générer des images reconnaissables à première vue, mais qui présentent des artefacts et une qualité globale inférieure à celle obtenue sur MNIST. Si nous ne pouvons nous attendre à des images générées de très haute qualité (les images du dataset restent de taille 32x32, et donc de qualité limitée), nous pouvons néanmoins observer que le modèle est capable de générer des images qui sont reconnaissables comme appartenant à la classe cible, ce qui montre que la Classifier-Free Guidance fonctionne également sur ce dataset plus complexe.Il serait cependant pertinent de considérer une architecture plus complexe (par exemple, en augmentant la profondeur du modèle) pour améliorer la qualité des images générées sur ce dataset (ou d'autres, du type ImageNet).\\
+Les résultats obtenus sont donnés en annexe \ref{annexe:cfg_cifar10}, et présentent les limites du modèle, qui parvient à générer des images reconnaissables à première vue, mais qui présentent des artefacts et une qualité globale inférieure à celle obtenue sur MNIST. Si nous ne pouvons nous attendre à des images générées de très haute qualité (les images du dataset restent de taille 32x32, et donc de qualité limitée), nous pouvons néanmoins observer que le modèle est capable de générer des images qui sont reconnaissables comme appartenant à la classe cible, ce qui montre que la Classifier-Free Guidance fonctionne également sur ce dataset plus complexe.Il serait cependant pertinent de considérer une architecture plus complexe (par exemple, en augmentant la profondeur du modèle) pour améliorer la qualité des images générées sur ce dataset (ou d'autres, du type ImageNet).\\
 
 

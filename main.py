@@ -320,7 +320,7 @@ def run_inference(
         ax.set_xticks([])
         ax.set_yticks([])
         ax.imshow(image)
-    plt.suptitle(f"Generated images for class '{class_name}' with s={s}")
+    #plt.suptitle(f"Generated images for class '{class_name}' with s={s}")
     
     # ensure directory exists
     if not os.path.exists("./report/images"):

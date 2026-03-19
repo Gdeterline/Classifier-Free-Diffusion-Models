@@ -48,7 +48,7 @@ def plot_image_grid(dataset: str = 'mnist', num_row: int = 10, num_col: int = 10
         if image.shape[2] == 1:
             image = image.squeeze(2)  # (H, W, 1) -> (H, W) pour les images en niveaux de gris
         ax.imshow(image)
-    plt.suptitle(f"Example of Images from the Dataset {tdataset.__class__.__name__}")
+    #plt.suptitle(f"Example of Images from the Dataset {tdataset.__class__.__name__}")
     if save:
         plt.savefig(f"report/images/{tdataset.__class__.__name__}_image_grid.png")
     plt.show()
