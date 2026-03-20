@@ -77,6 +77,7 @@ où $\alpha_t = 1 - \beta_t$ et $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$. Nous 
 Lorsque $T \to \infty$, l'échantillon  $x_T$ devient quasiment une distribution gaussienne isotrope. Par conséquent, si nous parvenons à apprendre la distribution inverse $q(x_{t-1} | x_t)$, nous pouvons échantillonner $x_T$ à partir de $\mathcal{N}(0, \mathbf{I})$, exécuter le processus inverse et obtenir un échantillon de $q(x_0)$. Nous pouvons alors générer un nouveau point de donnée issu de la distribution d'origine. Il s'agit donc de savoir comment modéliser ce processus de diffusion inverse.\\
 
 \subsubsection{Approximation du processus inverse par un réseau de neurones}
+\label{sec:diffusion_inverse}
 
 En pratique, la distribution $q(x_{t-1} | x_t)$ est intraitable car son estimation statistique nécessiterait des calculs impliquant l'ensemble de la distribution de données $q(x_0)$. Par conséquent, nous l'approximons plutôt, par un modèle paramétré $p_\theta$ (par exemple, un réseau de neurones). \\
 
@@ -111,39 +112,66 @@ Après une série de calculs que nous ne détaillerons pas ici, nous pouvons éc
 \log p(x) \geq \mathbb{E}_{q(x_1|x_0)}[\log p_\theta(x_0|x_1)] - D_{KL}(q(x_T|x_0) || p(x_T)) - \sum_{t=2}^T \mathbb{E}_{q(x_t|x_0)} [D_{KL}(q(x_{t-1}|x_t, x_0) || p_\theta(x_{t-1}|x_t))]
 \end{equation}
 
+\vspace{0.1cm}
+
 L'analyse des termes de l'ELBO permet de mieux comprendre les objectifs du modèle :
 \begin{itemize}
-    \item \textbf{Reconstruction :} Le terme $\mathbb{E}_{q(x_1|x_0)}[\log p_\theta(x_0|x_1)]$ est un terme de reconstruction similaire à celui d'un VAE.
-    \item \textbf{Prior matching :} $D_{KL}(q(x_T|x_0) || p(x_T))$ mesure la proximité de la distribution finale avec une gaussienne standard. Sans paramètres entraînés, il est ignoré lors de l'apprentissage.
+    \item \textbf{Reconstruction :} Le terme $\mathbb{E}_{q(x_1|x_0)}[\log p_\theta(x_0|x_1)]$ est un terme de reconstruction similaire à celui d'un VAE, qui encourage le modèle à apprendre à reconstruire les données d'origine à partir de l'état bruité $x_1$.
+    \item \textbf{Prior matching :} $D_{KL}(q(x_T|x_0) || p(x_T))$ mesure la distance (au sens de Kullback-Leibler) entre la distribution de $x_T$ sachant $x_0$ et la distribution de $x_T$ du modèle (distribution gaussienne isotropique).
     \item \textbf{ Denoising:} Le terme $\sum_{t=2}^T L_{t-1}$ représente l'écart entre les étapes de débruitage réelles et celles prédites par le modèle.\\
 \end{itemize}
 
 \subsubsection{Rendre le processus inverse traitable}
 
-Bien que $q(x_{t-1}|x_t)$ soit intraitable, le conditionnement sur $x_0$ permet d'obtenir:
-\begin{equation}
-q(x_{t-1}|x_t, x_0) = \mathcal{N}(x_{t-1} ; \tilde{\mu}_t(x_t, x_0), \tilde{\beta}_t \mathbf{I})
-\end{equation}
-Grâce à l'astuce de reparamétrage présentée dans l'Annexe \ref{annexe:diffusion_details}, nous pouvons exprimer $\mathbf{x}_0$ en fonction de $\mathbf{x}_t$ et du bruit $\boldsymbol{\epsilon}$. En substituant cette expression dans la formulation du processus inverse, la moyenne cible $\tilde{\mu}_t$ devient directement dépendante de $\boldsymbol{\epsilon}$ :
+Comme nous avions commencé à le mentionner dans la section \ref{sec:diffusion_inverse}, le processus de diffusion inverse est mathématiquement intraitable, car il nécessite de calculer des intégrales impliquant la distribution de données $q(x_0)$. En revanche, nous pouvons calculer $q(x_{t-1} | x_t, x_0)$, qui est la distribution de $x_{t-1}$ sachant $x_t$ et $x_0$. En utilisant les propriétés des distributions gaussiennes, nous pouvons montrer que $q(x_{t-1} | x_t, x_0)$ est également une distribution gaussienne dont la moyenne et la variance peuvent être calculées de manière analytique. 
 
 \begin{equation}
-    \tilde{\mu}_t(\mathbf{x}_t, \boldsymbol{\epsilon}) = \frac{1}{\sqrt{\alpha_t}} \left( \mathbf{x}_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \boldsymbol{\epsilon} \right)
+q(x_{t-1} | x_t, x_0) = \mathcal{N}(x_{t-1} ; \tilde{\mu}_t(x_t, x_0), \tilde{\beta}_t \mathbf{I})
+\label{eq:q_x_t-1_xt_x0}
 \end{equation}
+
+Les détails de ce développement mathématique ne sont pas donnés dans ce rapport, mais peuvent être trouvés dans l'article \textit{What are Diffusion Models?} de L. Weng \cite{weng2021}. Nous pouvons toutefois donner l'expression de la moyenne de $q(x_{t-1} | x_t, x_0)$: \\
+
 \begin{equation}
-\tilde{\mu}_t(x_t) = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon \right)
+\tilde{\mu}_t(x_t, x_0) = \frac{\sqrt{\alpha_t} (1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} x_t + \frac{\sqrt{\bar{\alpha}_{t-1}} \beta_t}{1 - \bar{\alpha}_t} x_0
+\label{eq:mu_q_x_t-1_xt_x0}
 \end{equation}
+
+Nous avions établi, dans l'expression \ref{eq:diffusion_directe_xt_x0}, que $x_t$ peut être exprimé directement en fonction de $x_0$ et du bruit ajouté à chaque étape. 
+
+Nous avons: 
+
+\begin{equation}
+x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon
+\label{eq:xt_x0_epsilon}
+\end{equation}
+
+où $\epsilon \sim \mathcal{N}(0, \mathbf{I})$ représente le bruit ajouté à chaque étape. En réarrangeant l'équation (\ref{eq:xt_x0_epsilon}), nous pouvons exprimer $x_0$ en fonction de $x_t$ et du bruit $\epsilon$ :
+
+\begin{equation}
+x_0 = \frac{1}{\sqrt{\bar{\alpha}_t}} \left( x_t - \sqrt{1 - \bar{\alpha}_t} \epsilon \right)
+\end{equation}
+
+En substituant cette expression de $x_0$ dans la formule de la moyenne de $q(x_{t-1} | x_t, x_0)$ (équation \ref{eq:mu_q_x_t-1_xt_x0}), nous obtenons une formulation qui permet au modèle de prédire directement le bruit $\epsilon$ à partir de $x_t$ et du pas de temps $t$ :\\
+
+\begin{equation}
+\tilde{\mu}_t(x_t, \epsilon) = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \epsilon \right)
+\label{eq:mu_q_x_t-1_xt_epsilon}
+\end{equation}
+
 
 \subsubsection{Prédire le bruit : La perte simplifiée}
 
-Cette formulation montre qu'au lieu de prédire la moyenne de la distribution, le modèle peut simplement apprendre à prédire le bruit $\epsilon$ ajouté à chaque étape.\cite{Ho2020} ont proposé une version simplifiée de la fonction de perte qui surpasse l'objectif théorique :
+Cette formulation montre qu'au lieu de prédire la moyenne de la distribution, le modèle peut simplement apprendre à prédire le bruit $\epsilon$ ajouté à chaque étape. \textit{Ho et al.} ont proposé une version simplifiée de la fonction de perte qui surpasse l'objectif théorique :
 
 \begin{equation}
 L_{simple}(\theta) = \mathbb{E}_{x_0, t, \epsilon} \left[ \left\| \epsilon - \epsilon_\theta(\sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon, t) \right\|^2 \right]
 \end{equation}
 
-Dans le modèle DDPM original \cite{Ho2020}, la variance $\Sigma_\theta$ est maintenue fixe, et le réseau n'apprend que la moyenne.\\
+Dans le modèle DDPM original (\textit{Ho et al.}, \cite{Ho2020}), la variance $\Sigma_\theta$ est maintenue fixe, et le réseau n'apprend que la moyenne.\\
 
 Ayant présenté les principes de base des modèles de diffusion, et plus particulièrement des DDPM, nous pouvons désormais aborder leur implémentation.\\
+
 
 \section{Implémentation d'un DDPM}
 
