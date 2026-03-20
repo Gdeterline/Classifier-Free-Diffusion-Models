@@ -39,8 +39,24 @@ De manière analogue aux modèles basés sur la vraisemblance, nous pouvons entr
 \begin{equation}
     \mathbb{E}_{p(\mathbf{x})} \left[ \| \nabla_{\mathbf{x}} \log p(\mathbf{x}) - \mathbf{s}_\theta(\mathbf{x}) \|_2^2 \right]
 \end{equation}
-Intuitivement, cette divergence compare le carré de la distance $\ell_2$ entre le score réel des données (\textit{ground-truth}) et le modèle basé sur le score. Cependant, le calcul direct de cette mesure est irréalisable car il nécessite l'accès au score inconnu des données, $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Heureusement, il existe une famille de méthodes appelées \textit{score matching} (appariement de score) qui permettent de minimiser la divergence de Fisher sans connaître explicitement le score réel des données. Pour plus de détails sur la transformation mathématique permettant de s'affranchir du score inconnu via l'intégration par parties, on pourra se référer à l'annexe \ref{annexe:score_matching}. Ces objectifs de \textit{score matching} peuvent être directement estimés sur un jeu de données et optimisés par descente de gradient stochastique, de manière analogue à l'objectif de log-vraisemblance utilisé pour l'entraînement des modèles classiques.
+Intuitivement, cette divergence compare le carré de la distance $\ell_2$ entre le score réel des données (\textit{ground-truth}) et le modèle basé sur le score. Cependant, le calcul direct de cette mesure est irréalisable car il nécessite l'accès au score inconnu des données, $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Heureusement, il existe une famille de méthodes appelées \textit{score matching} qui permettent de minimiser la divergence de Fisher sans connaître explicitement le score réel des données. Pour plus de détails sur la transformation mathématique permettant de s'affranchir du score inconnu via l'intégration par parties, on pourra se référer à l'annexe \ref{annexe:score_matching}. Ces objectifs de \textit{score matching} peuvent être directement estimés sur un jeu de données et optimisés par descente de gradient stochastique, de manière analogue à l'objectif de log-vraisemblance utilisé pour l'entraînement des modèles classiques.\\
 
+\underline{Note: Relation entre DDPM et modèles basés sur le score}
+
+Avant d'aborder les modèles de diffusion probabilistes (DDPM), il est essentiel d'établir le lien théorique avec les modèles basés sur le score (\textit{Score-based Generative Models}). Dans l'approche par le score, on entraîne un réseau de neurones à prédire le gradient de la log-densité de probabilité, noté $\nabla_{\mathbf{x}} \log p_{\theta}(\mathbf{x})$, qui indique la direction vers les régions de haute densité de la distribution des données. 
+
+Dans un processus de diffusion gaussien (DDPM), du bruit est injecté successivement jusqu'à obtenir une image totalement bruitée. On entraîne alors un réseau à prédire le bruit $\mathbf{\epsilon}$ ajouté à chaque pas de temps $t$. Mathématiquement, cette prédiction est équivalente au score de la distribution perturbée selon la relation :
+\begin{equation}
+    \nabla_{\mathbf{x}_t} \log p(\mathbf{x}_t | \mathbf{x}_0) = - \frac{\mathbf{\epsilon}}{\sigma_t}
+\end{equation}
+Ainsi, prédire le bruit $\mathbf{\epsilon}$ (approche DDPM) revient strictement à estimer le score (approche \textit{Score Matching}), à un facteur d'échelle près ($1/\sigma_t$).
+
+L'utilisation prédominante des DDPM s'explique principalement par la simplicité de leur entraînement. La fonction de perte est simplifiée sous la forme d'une distance $L_2$ entre le bruit réel injecté et le bruit prédit par le modèle :
+\begin{equation}
+    L_{\text{simple}} = \mathbb{E} \left[ \| \mathbf{\epsilon} - \mathbf{\epsilon}_\theta(\mathbf{x}_t, t) \|^2 \right]
+\end{equation}
+De plus, les modèles basés sur le score classiques souffrent souvent dans les régions de faible densité où le gradient est quasi nul, empêchant toute convergence. L'ajout successif de bruit dans le cadre des DDPM permet d'étaler les données sur tout l'espace de configuration. Le modèle dispose ainsi d'échantillons sur l'ensemble du domaine pour apprendre efficacement le score, représenté ici par le bruit.
+\newpage
 \section{Denoising Diffusion Probabilistic Models (DDPM)}
 
 Nous proposons à présent d'orienter notre étude vers les modèles de diffusion par débruitage, plus précisément les Denoising Diffusion Probabilistic Models (DDPM) proposés par \textit{Ho et al.} \cite{Ho2020}. Ces modèles sont basés sur un processus de diffusion directe, dans lequel du bruit est ajouté progressivement à un échantillon de données, et un processus de diffusion inverse, dans lequel le modèle apprend à inverser ce processus de diffusion pour générer de nouvelles données à partir d'un échantillon bruité.\\
@@ -59,7 +75,7 @@ q(x_t | x_{t-1}) = \mathcal{N}(x_t ; \mu_t = \sqrt{1 - \beta_t} x_{t-1}, \Sigma_
 
 où $\beta_t$ est un hyperparamètre qui contrôle la quantité de bruit ajoutée à chaque étape (on parle de \textit{variance schedule}), et $\mathbf{I}$ est la matrice identité. \\
 
-Afin de simplifier les calculs, nous pouvons exprimer $x_t$ directement en fonction de $x_0$ et du bruit ajouté à chaque étape. L'annexe \ref{annexe:diffusion_details} présente les détails de ce développement mathématique, qui conduit à l'expression suivante :\\
+Nous pouvons exprimer $x_t$ directement en fonction de $x_0$ et du bruit ajouté à chaque étape. L'annexe \ref{annexe:diffusion_details} présente les détails de ce développement mathématique, qui conduit à l'expression suivante :\\
 
 \begin{equation}
 q(x_t | x_0) = \mathcal{N}(x_t ; \sqrt{\bar{\alpha}_t} x_0, (1 - \bar{\alpha}_t) \mathbf{I})
@@ -77,7 +93,6 @@ où $\alpha_t = 1 - \beta_t$ et $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$. Nous 
 Lorsque $T \to \infty$, l'échantillon  $x_T$ devient quasiment une distribution gaussienne isotrope. Par conséquent, si nous parvenons à apprendre la distribution inverse $q(x_{t-1} | x_t)$, nous pouvons échantillonner $x_T$ à partir de $\mathcal{N}(0, \mathbf{I})$, exécuter le processus inverse et obtenir un échantillon de $q(x_0)$. Nous pouvons alors générer un nouveau point de donnée issu de la distribution d'origine. Il s'agit donc de savoir comment modéliser ce processus de diffusion inverse.\\
 
 \subsubsection{Approximation du processus inverse par un réseau de neurones}
-\label{sec:diffusion_inverse}
 
 En pratique, la distribution $q(x_{t-1} | x_t)$ est intraitable car son estimation statistique nécessiterait des calculs impliquant l'ensemble de la distribution de données $q(x_0)$. Par conséquent, nous l'approximons plutôt, par un modèle paramétré $p_\theta$ (par exemple, un réseau de neurones). \\
 
@@ -90,13 +105,7 @@ p_\theta(x_{t-1} | x_t) = \mathcal{N}(x_{t-1} ; \mu_\theta(x_t, t), \Sigma_\thet
 
 \vspace{0.1cm}
 
-En appliqaunt la formule \ref{eq:diffusion_inverse} à chaque pas de temps $t$ ($p_\theta(x_{0:T})$, également appelée trajectoire), nous pouvons remonter de l'état $x_T$ jusqu'à l'état $x_0$ et ainsi générer un échantillon de la distribution d'origine $q(x_0)$.\\
-
-\begin{equation}
-p_\theta(x_{0:T}) = p(x_T) \prod_{t=1}^T p_\theta(x_{t-1} | x_t)
-\end{equation}
-
-\vspace{0.1cm}
+En appliquant la formule \ref{eq:diffusion_inverse} à chaque pas de temps $t$, nous pouvons remonter de l'état $x_T$ jusqu'à l'état $x_0$ et ainsi générer un échantillon $x_0$ issu de la distribution d'origine $q(x_0)$.\\
 
 En conditionnant le modèle sur le pas de temps $t$, celui-ci va apprendre à prédire les paramètres des distributions gaussiennes, à savoir la moyenne $\mu_\theta(x_t, t)$ et la matrice de covariance $\Sigma_\theta(x_t, t)$, pour chaque étape du processus.\\
 
@@ -159,7 +168,6 @@ En substituant cette expression de $x_0$ dans la formule de la moyenne de $q(x_{
 \label{eq:mu_q_x_t-1_xt_epsilon}
 \end{equation}
 
-
 \subsubsection{Prédire le bruit : La perte simplifiée}
 
 Cette formulation montre qu'au lieu de prédire la moyenne de la distribution, le modèle peut simplement apprendre à prédire le bruit $\epsilon$ ajouté à chaque étape. \textit{Ho et al.} ont proposé une version simplifiée de la fonction de perte qui surpasse l'objectif théorique :
@@ -172,7 +180,6 @@ Dans le modèle DDPM original (\textit{Ho et al.}, \cite{Ho2020}), la variance $
 
 Ayant présenté les principes de base des modèles de diffusion, et plus particulièrement des DDPM, nous pouvons désormais aborder leur implémentation.\\
 
-
 \section{Implémentation d'un DDPM}
 
 L'implémentation d'un DDPM repose sur plusieurs éléments clés, notamment l'architecture du modèle, l'influence du pas de temps, les blocks de ResNet et d'Attention, ainsi que les algorithmes d'entraînement et d'inférence.\\
@@ -180,7 +187,6 @@ L'implémentation d'un DDPM repose sur plusieurs éléments clés, notamment l'a
 \subsection{Architecture du modèle}
 
 Dans cette section, nous présentons une architecture de DDPM standard, issue de l'implémentation proposée par \textit{Jonathan Ho, Ajay Jain, Pieter Abbeel}. L'architecture du modèle de diffusion est composée de plusieurs éléments clés, notamment un U-Net, un encodage du pas de temps, des blocks ResNet et des blocks d'Attention.\\
-
 
 \subsubsection{U-Net}
 
@@ -190,11 +196,11 @@ La figure \ref{fig:unet} illustre l'architecture générale du U-Net considéré
 
 \begin{figure}[htbp]
     \centering
-    \resizebox{!}{0.4\paperheight}{
+% On passe à 70% de la largeur du texte pour une taille plus raisonnable
+    \resizebox{0.5\linewidth}{!}{
         \begin{tikzpicture}[
-            node distance=0.4cm, 
+            node distance=0.3cm, % Réduction légère de l'espace entre blocs
             every node/.style={font=\tiny, thick},
-            % Définition des styles
             res/.style={draw, rectangle, fill=blue!10, minimum width=2.5cm, minimum height=0.4cm},
             att/.style={draw, rectangle, fill=red!10, minimum width=2.5cm, minimum height=0.4cm},
             down/.style={draw, rectangle, fill=gray!20, minimum width=2.5cm},
@@ -362,65 +368,75 @@ La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilis
     \caption{Architecture d'un block de ResNet pour un DDPM.}
     \label{fig:resnet_block_ddpm}
 \end{figure}
-
+\newpage
 \subsubsection{Attention Blocks}
 
 Si nous nous référons à la figure \ref{fig:unet}, nous pouvons observer qu'en plus des blocks de ResNet, le modèle de diffusion intègre également des blocks d'Attention à certains endroits stratégiques de l'architecture (notamment dans les étapes intermédiaires du U-Net). Ces blocks d'Attention permettent au modèle de diffusion de capturer les dépendances à long terme dans l'image, ce qui est crucial pour générer des images cohérentes et de haute qualité.\\
 
-La figure \ref{fig:single_head_attn} illustre un block d'Attention typique utilisé dans le modèle de diffusion.\\
+La figure \ref{fig:single_head_attn_text} illustre un block d'Attention typique utilisé dans le modèle de diffusion.\\
 
 \begin{figure}[htbp]
     \centering
-    \begin{tikzpicture}[
-        node distance=0.7cm,
-        every node/.style={font=\tiny, thick},
-        % Styles cohérents
-        input/.style={draw, rectangle, fill=green!5, minimum width=1.5cm, minimum height=0.4cm},
-        block/.style={draw, rectangle, fill=blue!10, minimum width=3cm, minimum height=0.5cm, align=center},
-        op/.style={draw, circle, fill=orange!20, inner sep=1pt, minimum size=0.5cm},
-        annot/.style={font=\tiny\itshape, color=gray}
-    ]
-
-        % --- ENTRÉES ---
-        \node[input] (k) {Key ($K$)};
-        \node[input, left=1cm of k] (q) {Query ($Q$)};
-        \node[input, right=1cm of k] (v) {Value ($V$)};
-        \node[annot, above=0.2cm of k] {Dimensions : $(L, d_k)$};
-
-        % --- CALCUL DU SCORE ---
-        \node[op, below=1.2cm of k] (dot1) {$\times$};
-        \node[right=0.02cm of dot1, font=\tiny\bfseries] {Produit Scalaire};
+    % --- Bloc de Gauche : Le Schéma TikZ ---
+    \begin{minipage}{0.4\textwidth}
+        \centering
+        \resizebox{\linewidth}{!}{
+            \begin{tikzpicture}[
+                node distance=0.5cm,
+                every node/.style={font=\tiny, thick},
+                input/.style={draw, rectangle, fill=green!5, minimum width=1.5cm, minimum height=0.4cm},
+                block/.style={draw, rectangle, fill=blue!10, minimum width=3cm, minimum height=0.5cm, align=center},
+                op/.style={draw, circle, fill=orange!20, inner sep=1pt, minimum size=0.5cm},
+                annot/.style={font=\tiny\itshape, color=gray}
+            ]
+                % --- ENTRÉES ---
+                \node[input] (k) {Key ($K$)};
+                \node[input, left=1cm of k] (q) {Query ($Q$)};
+                \node[input, right=1cm of k] (v) {Value ($V$)};
+                \node[annot, above=0.2cm of k] {Dimensions : $(L, d_k)$};
+    
+                % --- CALCUL DU SCORE ---
+                \node[op, below=0.8cm of k] (dot1) {$\times$};
+                \node[right=0.02cm of dot1, font=\tiny\bfseries] {Produit Scalaire};
+                
+                \draw[->] (q) -- (dot1) node[pos=0.4, left] {$Q$};
+                \draw[->] (k) -- (dot1) node[pos=0.4, right] {$K$};
+    
+                % --- NORMALISATION ---
+                \node[block, below=0.5cm of dot1] (scale) {Scaling ($1/\sqrt{d_k}$)};
+                \node[block, below=0.5cm of scale] (soft) {Softmax};
+                
+                \draw[->] (dot1) -- (scale);
+                \draw[->] (scale) -- (soft);
+    
+                % --- APPLICATION SUR V ---
+                \node[op, below=1.2cm of soft] (dot2) {$\times$};
+                \node[right=0.2cm of dot2, yshift=-0.3cm, font=\tiny\bfseries] {Somme pondérée};        
+                
+                \draw[->] (soft) -- (dot2) node[pos=0.5, left] {Scores $\alpha$};
+                \draw[->] (v) |- (dot2) node[pos=0.7, above] {$V$};
+    
+                % --- SORTIE ---
+                \node[input, below=0.7cm of dot2] (out) {Attention Out};
+                \draw[->] (dot2) -- (out);
+            \end{tikzpicture}
+        }
+    \end{minipage}
+    \hfill % Espace élastique entre les deux blocs
+    % --- Bloc de Droite : Le Texte ---
+    \begin{minipage}{0.45\textwidth}
+        \small % Taille de police légèrement réduite pour le bloc de texte
+        Ces blocs d'Attention sont basés sur le mécanisme de \textit{Multi-Head Attention}. Ils permettent au modèle de diffusion de se concentrer sur différentes parties de l'image à chaque étape du processus, améliorant ainsi la cohérence globale. 
         
-        \draw[->] (q) -- (dot1) node[pos=0.4, left] {$Q$};
-        \draw[->] (k) -- (dot1) node[pos=0.4, right] {$K$};
+        Notons que l'architecture ne contient qu'un nombre restreint de blocs d'Attention. Ceux-ci ne sont pas placés aux étapes les plus proches de l'entrée ou de la sortie du U-Net, mais plutôt dans les couches intermédiaires et le \textit{bottleneck}, afin de capturer les dépendances à long terme sans augmenter démesurément la complexité du modèle.
+    \end{minipage}
 
-        % --- NORMALISATION ---
-        \node[block, below=0.6cm of dot1] (scale) {Scaling ($1/\sqrt{d_k}$)};
-        \node[block, below=0.6cm of scale] (soft) {Softmax};
-        
-        \draw[->] (dot1) -- (scale);
-        \draw[->] (scale) -- (soft);
-
-        % --- APPLICATION SUR V ---
-        \node[op, below=1.8cm of soft] (dot2) {$\times$};
-\node[right=0.2cm of dot2, yshift=-0.4cm, font=\tiny\bfseries] {Somme pondérée};        
-        \draw[->] (soft) -- (dot2) node[pos=0.5, left] {Scores $\alpha$};
-        
-        % Flux de V qui descend et rejoint le produit final
-        \draw[->] (v) |- (dot2) node[pos=0.7, above] {$V$};
-
-        % --- SORTIE ---
-        \node[input, below=1cm of dot2] (out) {Attention Out};
-        \draw[->] (dot2) -- (out);
-
-    \end{tikzpicture}
-    \caption{Mécanisme d'attention sur une seule tête. Le produit $QK^T$ génère une matrice de score qui, après normalisation par Softmax, sert à pondérer les vecteurs de la matrice $V$.}
-    \label{fig:single_head_attn}
+    \vspace{0.3cm}
+    \caption{Mécanisme d'attention intégré à l'architecture du DDPM.}
+    \label{fig:single_head_attn_text}
 \end{figure}
 
-Ces blocks d'Attention sont basés sur le mécanisme d'Attention multi-têtes (Multi-Head Attention), et permettent au modèle de diffusion de se concentrer sur différentes parties de l'image à chaque étape du processus de génération, améliorant ainsi la qualité et la cohérence des images générées. Notons que l'architecture ne contient qu'un nombre restreint de blocks d'Attention, et qui sont ne sont pas placés aux étapes les plus proches de l'entrée ou de la sortie du U-Net, mais plutôt dans les étapes intermédiaires (et dans le bottleneck), afin de capturer les dépendances à long terme, sans pour autant augmenter démesurément la complexité du modèle.\\
-
-Ayant présenté les composants clés de l'architecture d'un DDPM, nous pouvons désormais donner les algorithmes d'entraînement et d'inférence associés à ce modèle.\\
+Ayant présenté les composants clés de l'architecture d'un DDPM, nous pouvons désormais détailler les algorithmes d'entraînement et d'inférence associés à ce modèle.
 
 \subsection{Algorithmes : Entraînement et Inférence}
 
@@ -428,8 +444,18 @@ La figure \ref{fig:ddpm_algos_combined} présente les algorithmes d'entraînemen
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.6\linewidth]{images/training-sampling-ddpm.png}
+    \includegraphics[width=0.8\linewidth]{images/training-sampling-ddpm.png}
     \caption{Algorithmes d'entraînement et d'échantillonnage des DDPM. \cite{Ho2020}}
     \label{fig:ddpm_algos_combined} 
 \end{figure}
 
+Si les algorithmes présentés (\ref{fig:ddpm_algos_combined}) sont assez cohérents au regard des principes théoriques que nous avons exposés, il demeure un point d'intérêt que nous n'avons pas évoqué. En effet, lors de l'échantillonnage, le modèle de diffusion utilise une formule légèrement différente de celle présentée dans l'équation \ref{eq:eq:mu_q_x_t-1_xt_epsilon} pour mettre à jour l'état $x_{t-1}$ à partir de $x_t$. En effet, la formule utilisée pour l'échantillonnage est la suivante :\\
+
+\begin{equation}
+x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \epsilon_\theta(x_t, t) \right) + \sigma_t z
+\label{eq:ddpm_sampling}
+\end{equation}
+
+avec $z \sim \mathcal{N}(0, \mathbf{I})$ si $t > 1$, et $z = 0$ sinon.\\
+
+L'ajout du terme de bruit $\sigma_t z$ dans la formule d'échantillonnage permet d'introduire une certaine diversité dans les échantillons générés: en effet, sans ce terme de bruit, le processus de diffusion inverse serait entièrement déterministe, et le modèle générerait toujours la même image à partir du même échantillon initial $x_T$. En introduisant ce terme de bruit, nous nous plaçons dans un cadre de génération stochastique, où le modèle peut générer différentes images à partir du même échantillon initial $x_T$, en fonction du bruit aléatoire ajouté à chaque étape du processus de diffusion inverse. Bien entendu, nous n'ajoutons du bruit que pour les étapes intermédiaires du processus de diffusion inverse, et pas pour la dernière étape (lorsque $t=1$), afin de garantir que le modèle génère une image cohérente à la fin du processus.\\
