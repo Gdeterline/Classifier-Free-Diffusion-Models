@@ -2,100 +2,133 @@
 \label{chap:intro_modeles}
 \rhead{Modèles de Diffusion}
 \section{Modèles de Diffusion}
-Les modèles de diffusion constituent une nouvelle classe de modèles génératifs à l'état de l'art, capables de produire des images de haute résolution. L'idée principale de ces modèles repose sur la correction itérative de la prédiction à chaque pas de temps, jusqu'à l'obtention d'une génération finale cohérente. 
 
-Dans cette partie, nous allons aborder les principes de base ainsi que l'architecture de ces modèles. \textbf{Pour l'élaboration de ce chapitre, nous nous concentrerons particulièrement sur les modèles probabilistes de diffusion par débruitage (\textit{Denoising Diffusion Probabilistic Models}, DDPM)} proposés par \cite{ho2022}, tout en notant qu'il existe d'autres approches basées sur la fonction de score (\textit{score-based models}).
+Les modèles de diffusion constituent une nouvelle classe de modèles génératifs à l'état de l'art, capables de produire des images de haute résolution. L'idée principale de ces modèles repose sur la correction itérative de la prédiction à chaque pas de temps, jusqu'à l'obtention d'une génération finale cohérente. \\
+
+Dans cette partie, nous allons aborder les principes généraux ainsi que l'architecture de ces modèles. \textbf{Dans la suite de l'étude, nous nous intéresserons particulièrement aux modèles probabilistes de diffusion par débruitage (\textit{Denoising Diffusion Probabilistic Models}, DDPM)} proposés par \textit{Ho et al.} \cite{Ho2020}, tout en notant qu'il existe d'autres approches basées sur la fonction de score (\textit{score-based models}).\\
+
+Avant d'aborder les DDPM, nous allons expliquer brièvement les modèles à base de score et leur lien avec les modèles de diffusion.
+\subsection{Modèles de diffusion basées sur la fonction de score}
+\noindent Supposons que nous disposions d'un ensemble de données $\mathcal{D} = \{x_1, x_2, \dots, x_n\}$ où chaque échantillon est issu d'une distribution multimodale. Par exemple, le jeu de données MNIST regroupe des chiffres de 0 à 9, où chaque $x_i$ représente une classe spécifique. L'objectif est de concevoir un \textbf{modèle génératif} capable de modéliser l'intégralité de cette distribution de données. Une fois le modèle entraîné, nous pourrons synthétiser de nouvelles données par \textbf{échantillonnage} à partir de la distribution apprise.
+
+Pour construire un modèle génératif, nous devons d'abord trouver une façon de poser le problème, notamment en utilisant un modèle basé sur la vraisemblance pour modéliser directement la densité de probabilité. Considérons une fonction $f_\theta(\mathbf{x})$, paramétrée par un paramètre apprenable $\theta$. Nous pouvons définir une fonction de densité de probabilité (pdf) via l'expression :
+\begin{equation}
+    p_\theta(\mathbf{x}) = \frac{e^{-f_\theta(\mathbf{x})}}{Z_\theta}
+    \label{zz}
+\end{equation}
+où $Z_\theta$ est un paramètre de normalisation dépendant de $\theta$, qui assure que $p_\theta$ estimée soit une distribution de probabilité telle que $\int p_\theta(\mathbf{x}) d\mathbf{x} = 1$. Ici, $f_\theta$ représente notre réseau de neurones. Nous pouvons alors assurer l'apprentissage de $p_\theta(\mathbf{x})$ en maximisant la log-vraisemblance des données selon la formulation :
+\begin{equation}
+    \max_\theta \sum_{i=1}^N \log p_\theta(\mathbf{x}_i)
+    \label{dd}
+\end{equation}
+Cependant, l'équation (\ref{dd}) impose que $p_\theta(\mathbf{x})$ soit une fonction de densité de probabilité normalisée. Pour calculer $p_\theta(\mathbf{x})$, il est donc nécessaire d'évaluer la constante de normalisation $Z_\theta$, une quantité généralement \textit{intractable} pour une fonction $f_\theta(\mathbf{x})$ générale. 
+
+Pour contourner cette difficulté, l'approche proposée par \cite{DBLP:journals/corr/abs-1907-05600} repose sur l'estimation de la fonction de score $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Le modèle de score $s_\theta(\mathbf{x})$ peut être paramétré sans tenir compte de la constante de normalisation $Z_\theta$ en appliquant le gradient sur l'équation (\ref{zz}) selon le développement suivant :
+
+\begin{align}
+    s_\theta(\mathbf{x}) &= \nabla_{\mathbf{x}} \log p_\theta(\mathbf{x}) \\
+    &= \nabla_{\mathbf{x}} \log \left( \frac{e^{-f_\theta(\mathbf{x})}}{Z_\theta} \right) \\
+    &= \nabla_{\mathbf{x}} \left[ -f_\theta(\mathbf{x}) - \log Z_\theta \right] \\
+    &= -\nabla_{\mathbf{x}} f_\theta(\mathbf{x}) - \underbrace{\nabla_{\mathbf{x}} \log Z_\theta}_{0} \\
+    s_\theta(\mathbf{x}) &= -\nabla_{\mathbf{x}} f_\theta(\mathbf{x})
+\end{align}
+
+Comme $Z_\theta$ ne dépend pas de $\mathbf{x}$, son gradient est nul, ce qui permet d'apprendre le score directement via le réseau de neurones $f_\theta$.
+
+De manière analogue aux modèles basés sur la vraisemblance, nous pouvons entraîner des modèles basés sur le score en minimisant la divergence de Fisher entre la distribution du modèle et celle des données, définie par l'expression :
+\begin{equation}
+    \mathbb{E}_{p(\mathbf{x})} \left[ \| \nabla_{\mathbf{x}} \log p(\mathbf{x}) - \mathbf{s}_\theta(\mathbf{x}) \|_2^2 \right]
+\end{equation}
+Intuitivement, cette divergence compare le carré de la distance $\ell_2$ entre le score réel des données (\textit{ground-truth}) et le modèle basé sur le score. Cependant, le calcul direct de cette mesure est irréalisable car il nécessite l'accès au score inconnu des données, $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Heureusement, il existe une famille de méthodes appelées \textit{score matching} (appariement de score) qui permettent de minimiser la divergence de Fisher sans connaître explicitement le score réel des données. Pour plus de détails sur la transformation mathématique permettant de s'affranchir du score inconnu via l'intégration par parties, on pourra se référer à l'annexe \ref{annexe:score_matching}. Ces objectifs de \textit{score matching} peuvent être directement estimés sur un jeu de données et optimisés par descente de gradient stochastique, de manière analogue à l'objectif de log-vraisemblance utilisé pour l'entraînement des modèles classiques.
+
+\section{Denoising Diffusion Probabilistic Models (DDPM)}
+
+Nous proposons à présent d'orienter notre étude vers les modèles de diffusion par débruitage, plus précisément les Denoising Diffusion Probabilistic Models (DDPM) proposés par \textit{Ho et al.} \cite{Ho2020}. Ces modèles sont basés sur un processus de diffusion directe, dans lequel du bruit est ajouté progressivement à un échantillon de données, et un processus de diffusion inverse, dans lequel le modèle apprend à inverser ce processus de diffusion pour générer de nouvelles données à partir d'un échantillon bruité.\\
+
 \subsection{Processus de diffusion directe (Forward Process)}
 
-Les modèles de diffusion sont formulés de manière markovienne, c'est-à-dire comme une chaîne de Markov de $T$ étapes. Cette propriété implique que chaque étape dépend uniquement de l'état atteint à l'étape précédente.
+Afin de construire un modèle de diffusion, nous devons d'abord définir un processus de diffusion directe, qui consiste à ajouter du bruit à un échantillon de données à chaque étape $t$ de la chaîne.\\
 
-Supposons que nous disposions d'un point de données $x_0$ échantillonné à partir de la distribution réelle $q(x)$ ($x_0 \sim q(x)$). Nous pouvons définir un processus de diffusion directe en ajoutant progressivement du bruit à chaque étape de la chaîne. Plus précisément, à chaque itération $t$, on injecte un bruit gaussien de variance $\beta_t$ à l'échantillon $x_{t-1}$, produisant ainsi une nouvelle variable latente $x_t$. La distribution de transition $q(x_t | x_{t-1})$ de ce processus peut être formulée comme suit :
+Supposons que nous disposions d'un point de données $x_0$ échantillonné à partir de la distribution réelle $q(x)$ ($x_0 \sim q(x)$). Nous pouvons définir un processus de diffusion directe en ajoutant progressivement du bruit à chaque étape de la chaîne. Plus précisément, à chaque itération $t$, on injecte un bruit gaussien de variance $\beta_t$ à l'échantillon $x_{t-1}$, produisant ainsi une nouvelle variable  $x_t$. La distribution de transition $q(x_t | x_{t-1})$ de ce processus peut être formulée comme suit :\\
 
 \begin{equation}
 q(x_t | x_{t-1}) = \mathcal{N}(x_t ; \mu_t = \sqrt{1 - \beta_t} x_{t-1}, \Sigma_t = \beta_t \mathbf{I})
 \end{equation}
 
-Où $\beta_t$ représente le schéma de bruit (\textit{variance schedule}) à l'étape $t$ et $\mathbf{I}$ est la matrice identité.
-\subsection{L'astuce de reparamétrage }
+\vspace{0.1cm}
 
-Puisque nous évoluons dans un scénario multidimensionnel, $\mathbf{I}$ représente la matrice identité, indiquant que chaque dimension possède la même variance $\beta_t$. Il est important de noter que $q(x_t | x_{t-1})$ suit toujours une distribution normale, définie par une moyenne $\mu_t = \sqrt{1 - \beta_t} x_{t-1}$ et une variance $\Sigma_t = \beta_t \mathbf{I}$. Ici, $\Sigma_t$ est systématiquement une matrice diagonale de variances.
+où $\beta_t$ est un hyperparamètre qui contrôle la quantité de bruit ajoutée à chaque étape (on parle de \textit{variance schedule}), et $\mathbf{I}$ est la matrice identité. \\
 
-Dès lors, nous pouvons passer de la donnée initiale $x_0$ à l'état bruité $x_T$ sous une forme fermée (\textit{closed form}) de manière traitable. Mathématiquement, cela correspond à la probabilité \textit{a posteriori} définie par la trajectoire :
-\begin{equation}
-q(x_{1:T} | x_0) = \prod_{t=1}^T q(x_t | x_{t-1})
-\end{equation}
+Afin de simplifier les calculs, nous pouvons exprimer $x_t$ directement en fonction de $x_0$ et du bruit ajouté à chaque étape. L'annexe \ref{annexe:diffusion_details} présente les détails de ce développement mathématique, qui conduit à l'expression suivante :\\
 
-L'utilisation du symbole "$:$" dans $q(x_{1:T})$ indique l'application répétée de $q$ du pas de temps $1$ jusqu'à $T$. Cependant, pour un pas de temps intermédiaire (par exemple $t=500$), il serait inefficace d'appliquer $q$ 500 fois pour échantillonner $x_t$. 
-
-L'astuce de reparamétrage (\textit{reparametrization trick}) offre une solution directe. En définissant $\alpha_t = 1 - \beta_t$ et $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$, nous pouvons prouver par récurrence que :
-\begin{equation}
-x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon, \quad \text{avec } \epsilon \sim \mathcal{N}(0, \mathbf{I})
-\end{equation}
-
-Ainsi, pour produire un échantillon $x_t$, nous utilisons la distribution suivante :
 \begin{equation}
 q(x_t | x_0) = \mathcal{N}(x_t ; \sqrt{\bar{\alpha}_t} x_0, (1 - \bar{\alpha}_t) \mathbf{I})
+\label{eq:diffusion_directe_xt_x0}
 \end{equation}
 
-Comme le schéma de bruit $\beta_t$ est un hyperparamètre, nous pouvons précalculer $\alpha_t$ et $\bar{\alpha}_t$ pour tous les pas de temps. Cela permet d'échantillonner $x_t$ à n'importe quel instant $t$ de manière arbitraire et instantanée, ce qui facilitera le calcul de notre fonction de perte $L_t$.
-\subsection{Schéma de variance (\textit{Variance Schedule})}
+\vspace{0.1cm}
 
-Le paramètre de variance $\beta_t$ peut être soit fixé comme une constante, soit choisi selon un calendrier spécifique (\textit{schedule}) évoluant au cours du temps $T$. En pratique, on peut définir un schéma de variance de type linéaire, quadratique, ou encore cosinus. 
+où $\alpha_t = 1 - \beta_t$ et $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$. Nous avons alors une expression explicite de la distribution de $x_t$ en fonction de $x_0$ et du bruit ajouté, ce qui facilite grandement les calculs ultérieurs pour le processus de diffusion inverse.\\
 
-Les auteurs originaux de DDPM \cite{ho2022} ont utilisé un calendrier linéaire augmentant de $\beta_1 = 10^{-4}$ à $\beta_T = 0.02$. Cependant, \cite{nichol2022} a montré que l'emploi d'un $\beta$ basé sur une fonction cosinus (\textit{cosine schedule}) offre de meilleures performances. Ce dernier permet notamment de ralentir l'ajout de bruit aux étapes proches de $x_0$, préservant ainsi davantage la structure de l'image durant les phases critiques du processus.
-\begin{figure}[h!]
-    \centering
-    \includegraphics[width=\linewidth]{images/variance-schedule.png}
-\caption{Échantillons latents issus respectivement des $\beta$ linéaire (en haut) et cosinus (en bas).\cite{dhariwal2021}}
-\end{figure}
+\underline{Note :} Afin de pouvoir écrire l'équation (\ref{eq:diffusion_directe_xt_x0}), nous devons faire l'hypothèse d'une chaîne de Markov, c'est-à-dire que $x_t$ ne dépend que de $x_{t-1}$ et pas des étapes précédentes. Cette hypothèse est raisonnable dans le contexte de la diffusion, car à chaque étape, nous ajoutons du bruit de manière indépendante, ce qui rend les étapes précédentes non informatives pour la distribution de $x_t$ une fois que nous connaissons $x_{t-1}$.\\
+
 \subsection{Processus de diffusion inverse (\textit{Reverse Diffusion})}
 
-Lorsque $T \to \infty$, l'échantillon latent $x_T$ devient quasiment une distribution gaussienne isotrope. Par conséquent, si nous parvenons à apprendre la distribution inverse $q(x_{t-1} | x_t)$, nous pouvons échantillonner $x_T$ à partir de $\mathcal{N}(0, \mathbf{I})$, exécuter le processus inverse et obtenir un échantillon de $q(x_0)$. Cela permet de générer un nouveau point de donnée issu de la distribution d'origine. La question centrale est alors de savoir comment modéliser ce processus de diffusion inverse.
+Lorsque $T \to \infty$, l'échantillon  $x_T$ devient quasiment une distribution gaussienne isotrope. Par conséquent, si nous parvenons à apprendre la distribution inverse $q(x_{t-1} | x_t)$, nous pouvons échantillonner $x_T$ à partir de $\mathcal{N}(0, \mathbf{I})$, exécuter le processus inverse et obtenir un échantillon de $q(x_0)$. Nous pouvons alors générer un nouveau point de donnée issu de la distribution d'origine. Il s'agit donc de savoir comment modéliser ce processus de diffusion inverse.\\
 
 \subsubsection{Approximation du processus inverse par un réseau de neurones}
 
-En pratique, la distribution $q(x_{t-1} | x_t)$ est intraitable car son estimation statistique nécessiterait des calculs impliquant l'ensemble de la distribution de données. À la place, nous l'approximons par un modèle paramétré $p_\theta$ (par exemple, un réseau de neurones). 
+En pratique, la distribution $q(x_{t-1} | x_t)$ est intraitable car son estimation statistique nécessiterait des calculs impliquant l'ensemble de la distribution de données $q(x_0)$. Par conséquent, nous l'approximons plutôt, par un modèle paramétré $p_\theta$ (par exemple, un réseau de neurones). \\
 
-Puisque $q(x_{t-1} | x_t)$ est également gaussienne pour des valeurs de $\beta_t$ suffisamment petites, nous pouvons choisir $p_\theta$ comme une distribution gaussienne et paramétrer simplement sa moyenne et sa variance :
+Pour des valeurs de $\beta_t$ suffisamment petites, la distribution $q(x_{t-1} | x_t)$ est également gaussienne, ce qui nous permet de choisir $p_\theta$ comme une distribution gaussienne et de paramétrer simplement sa moyenne et sa variance. Plus précisément, nous pouvons définir $p_\theta$ comme suit :\\
 
 \begin{equation}
 p_\theta(x_{t-1} | x_t) = \mathcal{N}(x_{t-1} ; \mu_\theta(x_t, t), \Sigma_\theta(x_t, t))
+\label{eq:diffusion_inverse}
 \end{equation}
 
-Si nous appliquons cette formule inverse pour tous les pas de temps ($p_\theta(x_{0:T})$, également appelée trajectoire), nous pouvons remonter de l'état latent $x_T$ jusqu'à la distribution des données :
+\vspace{0.1cm}
+
+En appliqaunt la formule \ref{eq:diffusion_inverse} à chaque pas de temps $t$ ($p_\theta(x_{0:T})$, également appelée trajectoire), nous pouvons remonter de l'état $x_T$ jusqu'à l'état $x_0$ et ainsi générer un échantillon de la distribution d'origine $q(x_0)$.\\
 
 \begin{equation}
 p_\theta(x_{0:T}) = p(x_T) \prod_{t=1}^T p_\theta(x_{t-1} | x_t)
 \end{equation}
 
-En conditionnant le modèle sur le pas de temps $t$, celui-ci va apprendre à prédire les paramètres gaussiens, à savoir la moyenne $\mu_\theta(x_t, t)$ et la matrice de covariance $\Sigma_\theta(x_t, t)$, pour chaque étape du processus. Mais alors, comment entraîner un tel modèle ?
+\vspace{0.1cm}
+
+En conditionnant le modèle sur le pas de temps $t$, celui-ci va apprendre à prédire les paramètres des distributions gaussiennes, à savoir la moyenne $\mu_\theta(x_t, t)$ et la matrice de covariance $\Sigma_\theta(x_t, t)$, pour chaque étape du processus.\\
+
 \subsection{Entraînement d'un modèle de diffusion}
 
-Si nous prenons un peu de recul, nous pouvons remarquer que la combinaison de $q$ et $p$ est très similaire à celle d'un auto-encodeur variationnel (VAE). Par conséquent, nous pouvons l'entraîner en optimisant la log-vraisemblance négative des données d'entraînement. Après une série de calculs que nous ne détaillerons pas ici, nous pouvons écrire la borne inférieure de l'évidence (\textit{Evidence Lower Bound} ou ELBO) comme suit :
+Ayant défini les processus de diffusion directe et inverse, nous pouvons à présent aborder l'entraînement du modèle de diffusion.\\
+
+Tout d'abord, remarquons que la combinaison de $q$ et $p$ est très similaire à celle d'un auto-encodeur variationnel (VAE). En effet, $q$ joue le rôle d'un encodeur qui "déconstruit" les données en ajoutant du bruit, tandis que $p_\theta$ agit comme un décodeur qui tente de reconstruire les données à partir de l'état bruité. Alors, de la même manière que pour les VAE, nous cherchons à entraîner le modèle de diffusion en maximisant la log-vraisemblance des données d'entraînement. Néanmoins, le calcul direct de la log-vraisemblance est intraitable (il nécessiterait d'intégrer toutes les trajectoires de bruit possibles), et plutôt que de maximiser directement la log-vraisemblance, nous cherchons à optimiser une borne inférieure de l'évidence (ELBO), qui est un objectif plus tractable à optimiser.\\
+
+Après une série de calculs que nous ne détaillerons pas ici, nous pouvons écrire la borne inférieure de l'évidence (\textit{Evidence Lower Bound} ou ELBO) comme suit :\\
 
 \begin{equation}
 \log p(x) \geq \mathbb{E}_{q(x_1|x_0)}[\log p_\theta(x_0|x_1)] - D_{KL}(q(x_T|x_0) || p(x_T)) - \sum_{t=2}^T \mathbb{E}_{q(x_t|x_0)} [D_{KL}(q(x_{t-1}|x_t, x_0) || p_\theta(x_{t-1}|x_t))]
-\end{equation}
-
-Cette expression peut être simplifiée sous la forme suivante :
-\begin{equation}
-\mathcal{L} = L_0 - L_T - \sum_{t=2}^T L_{t-1}
 \end{equation}
 
 L'analyse des termes de l'ELBO permet de mieux comprendre les objectifs du modèle :
 \begin{itemize}
     \item \textbf{Reconstruction :} Le terme $\mathbb{E}_{q(x_1|x_0)}[\log p_\theta(x_0|x_1)]$ est un terme de reconstruction similaire à celui d'un VAE.
     \item \textbf{Prior matching :} $D_{KL}(q(x_T|x_0) || p(x_T))$ mesure la proximité de la distribution finale avec une gaussienne standard. Sans paramètres entraînés, il est ignoré lors de l'apprentissage.
-    \item \textbf{Dénoyautage (Denoising) :} Le terme $\sum_{t=2}^T L_{t-1}$ représente l'écart entre les étapes de débruitage réelles et celles prédites par le modèle.
+    \item \textbf{ Denoising:} Le terme $\sum_{t=2}^T L_{t-1}$ représente l'écart entre les étapes de débruitage réelles et celles prédites par le modèle.\\
 \end{itemize}
 
 \subsubsection{Rendre le processus inverse traitable}
 
-Bien que $q(x_{t-1}|x_t)$ soit intraitable, le conditionnement sur $x_0$ permet d'obtenir une forme fermée :
+Bien que $q(x_{t-1}|x_t)$ soit intraitable, le conditionnement sur $x_0$ permet d'obtenir:
 \begin{equation}
 q(x_{t-1}|x_t, x_0) = \mathcal{N}(x_{t-1} ; \tilde{\mu}_t(x_t, x_0), \tilde{\beta}_t \mathbf{I})
 \end{equation}
-Grâce à l'astuce de reparamétrage, nous pouvons exprimer $x_0$ en fonction de $x_t$ et du bruit $\epsilon$. En substituant cette expression, la moyenne cible $\tilde{\mu}_t$ devient dépendante de $\epsilon$ :
+Grâce à l'astuce de reparamétrage présentée dans l'Annexe \ref{annexe:diffusion_details}, nous pouvons exprimer $\mathbf{x}_0$ en fonction de $\mathbf{x}_t$ et du bruit $\boldsymbol{\epsilon}$. En substituant cette expression dans la formulation du processus inverse, la moyenne cible $\tilde{\mu}_t$ devient directement dépendante de $\boldsymbol{\epsilon}$ :
+
+\begin{equation}
+    \tilde{\mu}_t(\mathbf{x}_t, \boldsymbol{\epsilon}) = \frac{1}{\sqrt{\alpha_t}} \left( \mathbf{x}_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \boldsymbol{\epsilon} \right)
+\end{equation}
 \begin{equation}
 \tilde{\mu}_t(x_t) = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon \right)
 \end{equation}
@@ -243,7 +276,7 @@ L'intérêt d'appliquer un MLP à cet encodage sinusoïdal est de permettre au m
 
 \subsubsection{Blocks ResNet}
 
-Afin de prendre en compte le pas de temps dans les différentes étapes du processus de diffusion, on applique une fonction $SiLU$ (Sigmoid Linear Unit) à la sortie du MLP, puis une couche linéaire finale pour projeter ce vecteur d'encodage du pas de temps à la dimension des canaux du modèle de diffusion (par exemple, 128 ou 256 canaux). Alors, ce vecteur projeté (noté $t_{prj}$) est injecté dans les différents blocks de ResNet du modèle. Cette injection se fait généralement par addition (c'est-à-dire suivant la formule $out = out + t_prj$), ce qui permet au modèle de diffusion d'apprendre à ajuster sa prédiction en fonction du niveau de bruit présent dans l'image à chaque étape du processus de génération.\\
+Afin de prendre en compte le pas de temps dans les différentes étapes du processus de diffusion, on applique une fonction $SiLU$ (Sigmoid Linear Unit) à la sortie du MLP, puis une couche linéaire finale pour projeter ce vecteur d'encodage du pas de temps à la dimension des canaux du modèle de diffusion (par exemple, 128 ou 256 canaux). ALors, ce vecteur projeté (noté $t_{prj}$) est injecté dans les différents blocks de ResNet du modèle. Cette injection se fait généralement par addition (c'est-à-dire suivant la formule $out = out + t_prj$), ce qui permet au modèle de diffusion d'apprendre à ajuster sa prédiction en fonction du niveau de bruit présent dans l'image à chaque étape du processus de génération.\\
 
 La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilisé dans le modèle de diffusion, avec l'injection du pas de temps projeté.\\
 
@@ -306,9 +339,56 @@ La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilis
 
 Si nous nous référons à la figure \ref{fig:unet}, nous pouvons observer qu'en plus des blocks de ResNet, le modèle de diffusion intègre également des blocks d'Attention à certains endroits stratégiques de l'architecture (notamment dans les étapes intermédiaires du U-Net). Ces blocks d'Attention permettent au modèle de diffusion de capturer les dépendances à long terme dans l'image, ce qui est crucial pour générer des images cohérentes et de haute qualité.\\
 
-% La figure \ref{fig:attention_block_ddpm} illustre un block d'Attention typique utilisé dans le modèle de diffusion.\\
+La figure \ref{fig:single_head_attn} illustre un block d'Attention typique utilisé dans le modèle de diffusion.\\
 
-[FIGURE À AJOUTER]
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[
+        node distance=0.7cm,
+        every node/.style={font=\tiny, thick},
+        % Styles cohérents
+        input/.style={draw, rectangle, fill=green!5, minimum width=1.5cm, minimum height=0.4cm},
+        block/.style={draw, rectangle, fill=blue!10, minimum width=3cm, minimum height=0.5cm, align=center},
+        op/.style={draw, circle, fill=orange!20, inner sep=1pt, minimum size=0.5cm},
+        annot/.style={font=\tiny\itshape, color=gray}
+    ]
+
+        % --- ENTRÉES ---
+        \node[input] (k) {Key ($K$)};
+        \node[input, left=1cm of k] (q) {Query ($Q$)};
+        \node[input, right=1cm of k] (v) {Value ($V$)};
+        \node[annot, above=0.2cm of k] {Dimensions : $(L, d_k)$};
+
+        % --- CALCUL DU SCORE ---
+        \node[op, below=1.2cm of k] (dot1) {$\times$};
+        \node[right=0.02cm of dot1, font=\tiny\bfseries] {Produit Scalaire};
+        
+        \draw[->] (q) -- (dot1) node[pos=0.4, left] {$Q$};
+        \draw[->] (k) -- (dot1) node[pos=0.4, right] {$K$};
+
+        % --- NORMALISATION ---
+        \node[block, below=0.6cm of dot1] (scale) {Scaling ($1/\sqrt{d_k}$)};
+        \node[block, below=0.6cm of scale] (soft) {Softmax};
+        
+        \draw[->] (dot1) -- (scale);
+        \draw[->] (scale) -- (soft);
+
+        % --- APPLICATION SUR V ---
+        \node[op, below=1.8cm of soft] (dot2) {$\times$};
+\node[right=0.2cm of dot2, yshift=-0.4cm, font=\tiny\bfseries] {Somme pondérée};        
+        \draw[->] (soft) -- (dot2) node[pos=0.5, left] {Scores $\alpha$};
+        
+        % Flux de V qui descend et rejoint le produit final
+        \draw[->] (v) |- (dot2) node[pos=0.7, above] {$V$};
+
+        % --- SORTIE ---
+        \node[input, below=1cm of dot2] (out) {Attention Out};
+        \draw[->] (dot2) -- (out);
+
+    \end{tikzpicture}
+    \caption{Mécanisme d'attention sur une seule tête. Le produit $QK^T$ génère une matrice de score qui, après normalisation par Softmax, sert à pondérer les vecteurs de la matrice $V$.}
+    \label{fig:single_head_attn}
+\end{figure}
 
 Ces blocks d'Attention sont basés sur le mécanisme d'Attention multi-têtes (Multi-Head Attention), et permettent au modèle de diffusion de se concentrer sur différentes parties de l'image à chaque étape du processus de génération, améliorant ainsi la qualité et la cohérence des images générées. Notons que l'architecture ne contient qu'un nombre restreint de blocks d'Attention, et qui sont ne sont pas placés aux étapes les plus proches de l'entrée ou de la sortie du U-Net, mais plutôt dans les étapes intermédiaires (et dans le bottleneck), afin de capturer les dépendances à long terme, sans pour autant augmenter démesurément la complexité du modèle.\\
 
@@ -320,8 +400,8 @@ La figure \ref{fig:ddpm_algos_combined} présente les algorithmes d'entraînemen
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\linewidth]{images/training-sampling-ddpm.png}
-        \caption*{Algorithmes d'entraînement et d'échantillonnage des DDPM.\cite{Ho2020}}
-    \label{fig:ddpm_algos_combined}
+    \includegraphics[width=0.6\linewidth]{images/training-sampling-ddpm.png}
+    \caption{Algorithmes d'entraînement et d'échantillonnage des DDPM. \cite{Ho2020}}
+    \label{fig:ddpm_algos_combined} 
 \end{figure}
 
