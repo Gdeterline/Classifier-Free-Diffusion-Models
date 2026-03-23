@@ -58,6 +58,12 @@ def plot_class_distribution(dataset: str = 'mnist', save: bool = False) -> None:
     labels = [label for _, label in tdataset]
     unique_labels, counts = np.unique(labels, return_counts=True)
     
+    # if dataset is cifar10, put the class names instead of the label numbers
+    if dataset.lower() == "cifar10":
+        class_names = tdataset.classes
+        unique_labels = [class_names[label] for label in unique_labels]
+    
+    
     plt.figure(figsize=(8, 5))
     plt.bar(unique_labels, counts, color='skyblue')
     plt.xlabel('Classes')
@@ -71,5 +77,4 @@ def plot_class_distribution(dataset: str = 'mnist', save: bool = False) -> None:
     
     
 if __name__ == "__main__":
-    plot_image_grid(dataset='cifar10', num_row=10, num_col=10, save=True)
-    #plot_class_distribution(dataset='mnist', save=True)
+    plot_class_distribution(dataset='cifar10', save=True)
