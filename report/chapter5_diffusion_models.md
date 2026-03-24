@@ -73,7 +73,7 @@ q(x_t | x_{t-1}) = \mathcal{N}(x_t ; \mu_t = \sqrt{1 - \beta_t} x_{t-1}, \Sigma_
 
 \vspace{0.1cm}
 
-où $\beta_t$ est un hyperparamètre qui contrôle la quantité de bruit ajoutée à chaque étape (on parle de \textit{variance schedule}), et $\mathbf{I}$ est la matrice identité. \\
+où $\beta_t$ est un hyperparamètre qui contrôle la quantité de bruit ajoutée à chaque étape (on parle de \textit{variance schedule}, ou de \textit{planification de la variance}), et $\mathbf{I}$ est la matrice identité. \\
 
 Nous pouvons exprimer $x_t$ directement en fonction de $x_0$ et du bruit ajouté à chaque étape. L'annexe \ref{annexe:diffusion_details} présente les détails de ce développement mathématique, qui conduit à l'expression suivante :\\
 
@@ -90,7 +90,7 @@ où $\alpha_t = 1 - \beta_t$ et $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$. Nous 
 
 \subsection{Processus de diffusion inverse (\textit{Reverse Diffusion})}
 \label{sec:diff_inv}
-Lorsque $T \to \infty$, l'échantillon  $x_T$ devient quasiment une distribution gaussienne isotrope. Par conséquent, si nous parvenons à apprendre la distribution inverse $q(x_{t-1} | x_t)$, nous pouvons échantillonner $x_T$ à partir de $\mathcal{N}(0, \mathbf{I})$, exécuter le processus inverse et obtenir un échantillon de $q(x_0)$. Nous pouvons alors générer un nouveau point de donnée issu de la distribution d'origine. Il s'agit donc de savoir comment modéliser ce processus de diffusion inverse.\\
+Lorsque $T \to \infty$, l'échantillon  $x_T$ devient quasiment une distribution gaussienne isotrope. Par conséquent, si nous parvenons à apprendre à inverser le processus direct, c'est-à-dire modéliser la distribution $q(x_{t-1} | x_t)$, nous pouvons échantillonner $x_T$ à partir de $\mathcal{N}(0, \mathbf{I})$, exécuter le processus inverse/génératif et obtenir un nouvel échantillon de $q(x_0)$. Nous pouvons alors générer un nouveau point de donnée issu de la distribution d'origine. Il s'agit donc de savoir comment modéliser ce processus de diffusion inverse.\\
 
 \subsubsection{Approximation du processus inverse par un réseau de neurones}
 
