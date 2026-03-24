@@ -178,71 +178,7 @@ Précisons aussi que les paramètres de la table de correspondance des classes (
 
 \subsubsection{Architecture d'un block de ResNet conditionnel}
 
-L'architecture d'un block de ResNet conditionnel est similaire à celle d'un block de ResNet inconditionnel, avec l'ajout de mécanismes pour intégrer les informations du pas de temps et de la classe.\\
-
-La figure \ref{fig:resnet_block_cfg} illustre l'architecture d'un block de ResNet conditionnel. Nous avons les mêmes composantes que pour un block de ResNet inconditionnel (convolutions, normalisation, activation), mais avec la notion de modulation des canaux pour intégrer les informations du pas de temps et de la classe.\\
-
-\begin{figure}[htbp]
-\centering
-    \resizebox{!}{0.3\paperheight}{
-    \begin{tikzpicture}[node distance=0.5cm, every node/.style={font=\scriptsize, thick}]
-        % --- CHEMIN PRINCIPAL ---
-        \node (in) {Entrée $x$ ($C_{in}$)};
-        \node[draw, fill=blue!5, below=0.3cm of in, minimum width=3cm] (n1) {GroupNorm + SiLU};
-        \node[draw, fill=blue!10, below=of n1, minimum width=3cm] (c1) {Conv2D (3x3)};
-        
-        % Zone d'injection
-        \node[draw, circle, fill=yellow!30, below=0.7cm of c1] (mult) {$\times$};
-        \node[draw, circle, fill=yellow!30, below=0.6cm of mult] (plus_emb) {+};
-        
-        \node[draw, fill=blue!5, below=0.7cm of plus_emb, minimum width=3cm] (n2) {GroupNorm + SiLU + Dropout};
-        \node[draw, fill=blue!10, below=of n2, minimum width=3cm] (c2) {Conv2D (3x3)};
-        
-        \node[draw, circle, fill=orange!20, below=0.6cm of c2] (plus_res) {+};
-        \node[below=0.3cm of plus_res] (out) {Sortie ($C_{out}$)};
-
-        % --- CONDITIONNEMENT (À droite) ---
-        \node[draw, fill=orange!5, right=0.8cm of mult, align=left, font=\tiny, text width=1.5cm] (t_prj) {Proj. Temps\\(SiLU + Linear + Proj)};
-        \node[draw, fill=green!5, right=0.8cm of plus_emb, align=left, font=\tiny, text width=1.5cm] (y_prj) {Proj. Classe\\(SiLU + Linear + Proj)};
-        
-        \draw[<-] (t_prj.east) -- ++(0.3,0) node[right, font=\tiny] {$t_{emb}$};
-        \draw[<-] (y_prj.east) -- ++(0.3,0) node[right, font=\tiny] {$y_{emb}$};
-
-        % --- CHEMIN RÉSIDUEL (À gauche) ---
-        \node[draw, fill=gray!10, left=1.2cm of mult, font=\tiny, text width=2.5cm, align=center] (res_proj) {
-            \begin{tabular}{c} 
-                Skip Connection \\ 
-                (Linear Projection) 
-            \end{tabular}
-        };
-
-        % --- FLÈCHES CHEMIN PRINCIPAL ---
-        \draw[-{Stealth}] (in) -- (n1);
-        \draw[-{Stealth}] (n1) -- (c1);
-        \draw[-{Stealth}] (c1) -- (mult);
-        \draw[-{Stealth}] (mult) -- (plus_emb);
-        \draw[-{Stealth}] (plus_emb) -- (n2);
-        \draw[-{Stealth}] (n2) -- (c2);
-        \draw[-{Stealth}] (c2) -- (plus_res);
-        \draw[-{Stealth}] (plus_res) -- (out);
-
-        % --- FLÈCHES CONDITIONNEMENT ---
-        \draw[-{Stealth}] (t_prj.west) -- (mult.east) node[midway, above, font=\tiny] {Scale};
-        \draw[-{Stealth}] (y_prj.west) -- (plus_emb.east) node[midway, above, font=\tiny] {Shift};
-
-        % --- FLÈCHE RÉSIDUELLE (SKIP CONNECTION) ---
-        % 1. Part de la GAUCHE (west) de x
-        % 2. Descend et contourne pour arriver sur le haut du bloc gris (res_proj)
-        % 3. Sort par le bas (south) vers le bloc d'addition finale
-        \draw[-{Stealth}] (in.west) -- ++(-1.8,0) -- (res_proj.north);
-        \draw[-{Stealth}] (res_proj.south) |- (plus_res.west);
-    \end{tikzpicture}
-    }
-    \caption{Architecture d'un block de ResNet conditionnel pour un DDPM avec Classifier-Free Guidance.}
-    \label{fig:resnet_block_cfg}
-\end{figure}
-
-Si le fonctionnement du block de ResNet conditionnel est similaire à celui d'un block de ResNet inconditionnel, l'ajout de mécanismes pour intégrer les informations du pas de temps et de la classe (équation \ref{eq:resnet_modulation}) permet au modèle de moduler les canaux de manière conditionnelle, de manière à extraire des caractéristiques spécifiques à la classe et au niveau de bruit présent dans l'image à chaque étape du processus de diffusion.\\
+Le fonctionnement du block de ResNet conditionnel est similaire à celui d'un block de ResNet inconditionnel. L'ajout de mécanismes pour intégrer la classe (équation \ref{eq:resnet_modulation}) permet au modèle de moduler les canaux de manière conditionnelle, de manière à extraire des caractéristiques spécifiques à la classe et au niveau de bruit présent dans l'image à chaque étape du processus de diffusion.\\
 
 \begin{equation}
 \text{out} = \text{out} \times t_{prj} + y_{prj}
@@ -258,52 +194,23 @@ avec:
 
 Nous avons alors une modulation multiplicative (scale) par le vecteur du pas de temps, qui permet au modèle d'ajuster l'intensité des caractéristiques extraites en fonction du niveau de bruit présent dans l'image, et une modulation additive (shift) par le vecteur de la classe, qui permet au modèle d'ajuster les caractéristiques extraites, en fonction de la classe à laquelle l'image doit appartenir (nous pourrions imaginer que le conditionnement de classe "pousse" vers une région spécifique de l'espace des images).\\
 
-\underline{Note:} Notons plusieurs aspects importants concernant l'architecture du block de ResNet en figure \ref{fig:resnet_block_cfg} :
-\begin{itemize}
-    \item Nous avons une skip connection (chemin résiduel) qui permet de faire passer l'entrée $x$ directement à la sortie du block, ce qui stabilise l'entraînement.
-    \item L'utilisation de GroupNorm permet de diviser les canaux en groupes pour la normalisation, et est particulièrement adaptée dans la mesure où nous travaillons sur les canaux de l'image.
-    \item Le dropout présent dans la deuxième partie du block de ResNet permet de régulariser le modèle et n'a pas d'influence sur la classe des images générées.
-\end{itemize}
+L'architecture complète d'un block de ResNet conditionnel pour un DDPM avec Classifier-Free Guidance est présentée en annexe \ref{annexe:cfg_resnet_architecture}.\\
 
 \subsection{Algorithmes : Entraînement et Inférence}
 
-Ayant présenté l'architecture d'un block de ResNet conditionnel, nous pouvons maintenant détailler les algorithmes d'entraînement et d'inférence pour un DDPM avec Classifier-Free Guidance.\\
+Ayant décrit la prise en compte du pas de temps et de la classe dans l'architecture du modèle de diffusion conditionnel, nous pouvons maintenant détailler les algorithmes d'entraînement et d'inférence pour un DDPM avec Classifier-Free Guidance.\\
 
-\begin{algorithm}[H]
-\DontPrintSemicolon
-\SetAlgoLined
-\textbf{Entrées :} Jeu de données $\mathcal{D}=\{(x_0,y)\}$, modèle de diffusion conditionnel $\epsilon_\theta$, table d'embeddings $E$, probabilité de dropout $p_{\text{uncond}}$\;\\
-\textbf{Initialisation :}\\
-Construire la suite de bruitage $\{\alpha_t\}_{t=1}^T$ et les produits cumulés $\{\bar{\alpha}_t\}_{t=1}^T$\;\\
-Initialiser l'optimiseur sur les paramètres de $\epsilon_\theta$ et de $E$\;\\
-\For{$epochs = 1$ \KwTo $num\_epochs$}{
-    \For{chaque mini-batch $(x_0, y)$}{
-    
-        \textbf{1. Construction d'un exemple bruité :}\\
-        Échantillonner un pas de temps $t \sim \mathcal{U}(\{1,\dots,T\})$\;\\
-        Échantillonner un bruit gaussien $\varepsilon \sim \mathcal{N}(0,\mathbf{I})$\;\\
-        Construire l'image bruitée :
-        $x_t \leftarrow \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\varepsilon$\;\\
-    
-        \textbf{2. Construction du conditionnement de classe :}\\
-        Récupérer l'embedding de classe : $y_{\text{emb}} \leftarrow E[y]$\;\\
-        Échantillonner $u \sim \mathcal{U}(0,1)$\;\\
-        \If{$u < p_{\text{uncond}}$}{
-            $y_{\text{emb}} \leftarrow \mathbf{0}$
-        } 
-        \vspace{0.25cm}
-        \textbf{3. Prédiction du bruit et apprentissage :}\\
-        Prédire le bruit : $\hat{\varepsilon} \leftarrow \epsilon_\theta(x_t,t,y_{\text{emb}})$\;\\
-        Calculer la perte : $\mathcal{L} \leftarrow \|\hat{\varepsilon}-\varepsilon\|_2^2$\;\\
-        Mettre à jour les paramètres de $\epsilon_\theta$ et de $E$ par descente de gradient\;
-    }
-}
-\caption{Entraînement d'un DDPM avec \textit{Classifier-Free Guidance}}
-\label{alg:cfg_training}
-\end{algorithm}
+\subsubsection{Algorithme d'entraînement pour un DDPM avec Classifier-Free Guidance}
 
-L'algorithme d'entraînement présenté en \ref{alg:cfg_training} suit les étapes classiques d'entraînement d'un DDPM, avec l'ajout de la construction du conditionnement de classe et du dropout de classe pour permettre au modèle d'apprendre à générer des images à la fois conditionnelles et inconditionnelles.\\
+Le principe de l'entraînement d'un DDPM avec Classifier-Free Guidance est similaire à celui d'un DDPM inconditionnel, avec l'ajout de la construction du conditionnement de classe (ou de la condition $y$ plus généralement) et de la présentation d'exemples à la fois conditionnels et inconditionnels au modèle pendant l'entraînement.\\
 
+Le principe de l'entraînement est le même que pour un DDPM inconditionnel, à savoir que nous présentons au modèle des images bruitées $x_t$ à différents pas de temps $t$, et que nous lui demandons de prédire le bruit $\epsilon$ ajouté à l'image. La principale différence réside dans la construction du conditionnement de classe, où nous construisons, pour chaque image, l'embedding de classe $y_{emb}$ à partir de la table d'embeddings, en utilisant la classe $y$ associée, et en appliquant un dropout de classe pour obtenir à la fois des exemples conditionnels et inconditionnels.
+Alors, nous pouvons prédire le bruit $\epsilon$ à partir de l'image bruitée $x_t$, du pas de temps $t$, et de l'embedding de classe $y_{emb}$, en utilisant le modèle de diffusion conditionnel $\epsilon_\theta(x_t, t, y_{emb})$. Nous calculons ensuite la perte associée, et mettons à jour les paramètres du modèle par une descente de gradient.\\
+
+L'algorithme d'entraînement complet pour un DDPM avec Classifier-Free Guidance est présenté en annexe \ref{annexe:algos}.\\
+
+
+\subsubsection{Algorithme d'inférence pour un DDPM avec Classifier-Free Guidance}
 
 \begin{algorithm}[H]
 \DontPrintSemicolon
