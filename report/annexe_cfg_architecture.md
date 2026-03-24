@@ -1,6 +1,8 @@
-\chapter{Classifier-Free Guidance - Architecture d'un Block de ResNet Conditionnel}
+\chapter{Architectures détaillées}
 \label{annexe:cfg_resnet_architecture}
-\rhead{Classifier-Free Guidance - Architecture d'un Block de ResNet Conditionnel}
+\rhead{Architectures détaillées}
+
+\section{Architecture d'un Block de ResNet Conditionnel - Classifier-Free Guidance}
 
 La figure \ref{fig:resnet_block_cfg} illustre l'architecture d'un block de ResNet conditionnel, pour un DDPM avec Classifier-Free Guidance. Nous avons les mêmes composantes que pour un block de ResNet inconditionnel (convolutions, normalisation, activation), mais avec la notion de modulation des canaux pour intégrer les informations du pas de temps mais aussi de la classe.\\
 
