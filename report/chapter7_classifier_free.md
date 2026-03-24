@@ -56,13 +56,13 @@ Nous pouvons réécrire l'expression \ref{eq:cg_initial} de la manière suivante
 
 Nous avons alors une combinaison linéaire entre le score inconditionnel $\nabla_{x_t} \log p(x_t)$ et le score conditionnel $\nabla_{x_t} \log p(x_t | y)$, pondérée par le paramètre $s$, qui nous permet de conditionner le processus de génération en s'affranchissant d'un classifieur externe.\\
 
-Lors de l'entraînement du modèle, nous présentons à la fois des exemples conditionnels (où la classe $y$ est donnée) et des exemples inconditionnels (où la classe est remplacée par un token nul, on parle de "dropout" de classe). Le modèle de diffusion est alors capable de générer des images à la fois avec et sans conditionnement. Lors de l'inférence, à chaque pas de temps, nous pouvons alors calculer les deux scores (conditionnel et inconditionnel) et les combiner pour guider la génération selon le niveau de guidance souhaité. \\
+Lors de l'entraînement du modèle, nous présentons à la fois des exemples conditionnels (où la classe $y$ est donnée) et des exemples inconditionnels (où la classe est remplacée par un token nul, on parle de "dropout" de classe). Le modèle de diffusion est alors capable de générer des images à la fois avec et sans conditionnement. Lors de l'inférence, à chaque pas de temps, nous pouvons alors calculer les deux scores (conditionnel et inconditionnel) et les combiner pour guider la génération selon le niveau de guidage souhaité. \\
 
 Selon les valeurs de $s$, nous pouvons obtenir différents comportements de génération :
 \begin{itemize}
     \item $s = 0$ : Génération purement inconditionnelle, où le modèle génère des images sans tenir compte de la condition $y$.
     \item $s = 1$ : Génération purement conditionnelle, où le modèle génère des images strictement conformes à la condition $y$.
-    \item $s > 1$ : Génération avec une guidance renforcée, où le modèle est fortement incité à suivre la condition $y$, au risque de réduire la diversité des échantillons générés. \\
+    \item $s > 1$ : Génération avec un guidage renforcé, où le modèle est fortement incité à suivre la condition $y$, au risque de réduire la diversité des échantillons générés. \\
 \end{itemize}
 
 Afin de mieux comprendre les mécanismes sous-jacents de cette formulation mathématique, nous proposons désormais une approche géométrique complémentaire de ce qui a été proposé.\\
@@ -72,15 +72,17 @@ Afin de mieux comprendre les mécanismes sous-jacents de cette formulation math�
 Dans cette section, nous présentons une intuition géométrique de la CFG, qui devrait illustrer de manière plus visuelle comment la combinaison des scores conditionnel et inconditionnel permet de guider le processus de génération dans l'espace des images.
 Considérons une image bruitée $x_t$ à un pas de temps donné $t$. Dans l'espace des images, nous pouvons imaginer que les différentes classes forment des régions distinctes. \\
 
+Considérons une image bruitée $x_t$ à un pas de temps donné $t$. Dans l'espace des images, nous pouvons imaginer que les différentes classes forment des régions distinctes. \\
+
 À l'instant $t$, le modèle de diffusion effectue deux prédictions: celle de $\hat{x}_0$ inconditionnelle (sans conditionnement) et celle de $\hat{x}_0 | y$ conditionnelle. Ces deux prédictions peuvent être représentées comme des points dans l'espace des images. La figure \ref{fig:cfg_predictions} illustre cette situation, où nous avons une prédiction inconditionnelle et une prédiction conditionnelle. \\
 
-La formule \ref{eq:cfg_bayes} nous indique que le score de la CFG est une combinaison linéaire entre le score inconditionnel et le score conditionnel. Géométriquement, cela signifie que nous pouvons représenter ce score comme un vecteur "delta" qui va de la prédiction inconditionnelle vers la prédiction conditionnelle, comme illustré dans la figure \ref{fig:cfg_delta}. \\
+La formule \ref{eq:cfg_bayes} nous indique que le score de la CFG est une combinaison linéaire entre le score inconditionnel et le score conditionnel. Géométriquement, cela signifie que nous pouvons représenter ce score comme un vecteur $\delta$ caractérisant l'écart entre la prédiction inconditionnelle et la prédiction conditionnelle, comme illustré dans la figure \ref{fig:cfg_delta}. \\
 
-En multipliant ce vecteur "delta" par un facteur de guidance $s$, nous pouvons ajuster l'intensité de ce vecteur, ce qui correspond à renforcer ou atténuer la guidance vers la condition $y$. La figure \ref{fig:cfg_scale_delta} montre comment le vecteur "delta" est mis à l'échelle par le paramètre $s$. \\
+En multipliant ce vecteur $\delta$ par un facteur de guidage $s$, nous pouvons ajuster l'intensité de ce vecteur, ce qui revient à renforcer ou atténuer le guidage vers la condition $y$. La figure \ref{fig:cfg_scale_delta} montre comment le vecteur $\delta$ est mis à l'échelle par le paramètre $s$. \\
 
 Ensuite, lors de la mise à jour de $x_t$ pour obtenir $x_{t-1}$, nous ajoutons ce vecteur de score à la prédiction inconditionnelle, ce qui nous permet de guider la génération vers la condition souhaitée. La figure \ref{fig:cfg_step} illustre cette étape, où le vecteur de score est utilisé pour ajuster la prédiction inconditionnelle. \\
 
-Enfin, l'ajout de bruit pour obtenir $x_{t-1}$ à partir de la prédiction ajustée est représenté dans la figure \ref{fig:cfg_add_noise}. Cette étape est très importante dans la génération. En effet, si elle n'avait pas lieu, la génération deviendrait alors déterministe, et nous perdrions la diversité des échantillons générés. L'ajout de bruit permet de maintenir une certaine variabilité dans les échantillons, même lorsque la guidance est forte. Notons que nous n'ajoutons pas de bruit lors de la dernière étape de génération (lorsque $t=1$), afin d'obtenir une image finale nette. \\
+Enfin, l'ajout de bruit pour obtenir $x_{t-1}$ à partir de la prédiction ajustée est représenté dans la figure \ref{fig:cfg_add_noise}. Cette étape est très importante dans la génération. En effet, si elle n'avait pas lieu, la génération deviendrait alors déterministe, et nous perdrions la diversité des échantillons générés. L'ajout de bruit permet de maintenir une certaine variabilité dans les échantillons, même lorsque le guidage est fort. Notons que nous n'ajoutons pas de bruit lors de la dernière étape de génération (lorsque $t=1$), afin d'obtenir une image finale nette. \\
 
 \begin{figure}[htbp]
     \centering
@@ -95,14 +97,14 @@ Enfin, l'ajout de bruit pour obtenir $x_{t-1}$ à partir de la prédiction ajust
     \begin{subfigure}[b]{0.3\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/cfg_geometry_delta.png}
-        \caption{Vecteur "delta" entre les prédictions}
+        \caption{Vecteur $\delta$ entre les prédictions}
         \label{fig:cfg_delta}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.3\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/cfg_geometry_scale_delta.png}
-        \caption{Vecteur "delta" mis à l'échelle par $s$}
+        \caption{Vecteur $\delta$ mis à l'échelle par $s$}
         \label{fig:cfg_scale_delta}
     \end{subfigure}
 
@@ -127,7 +129,7 @@ Enfin, l'ajout de bruit pour obtenir $x_{t-1}$ à partir de la prédiction ajust
     \label{fig:cfg_geometry}
 \end{figure}
 
-Nous avons ainsi une intuition géométrique de la CFG, qui nous permet de visualiser comment les différentes composantes du score interagissent pour guider le processus de génération dans l'espace des images. Cette perspective peut être très utile pour comprendre les effets du paramètre de guidance $s$ et pour interpréter les résultats expérimentaux que nous présenterons par la suite. \\
+Nous avons ainsi une intuition géométrique de la CFG, qui nous permet de visualiser comment les différentes composantes du score interagissent pour guider le processus de génération dans l'espace des images. Cette perspective peut être très utile pour comprendre les effets du paramètre de guidage $s$ et pour interpréter les résultats expérimentaux que nous présenterons par la suite. \\
 
 \underline{Note:} Les figures \ref{fig:cfg_predictions}, \ref{fig:cfg_delta}, \ref{fig:cfg_scale_delta}, et \ref{fig:cfg_add_noise} montrent des espaces en 2 dimensions pour illustrer les différentes composantes du score et leur combinaison. Il est important de noter que ces figures sont ici pour aider à la compréhension, mais que l'espace réel des images est de beaucoup plus haute dimension.
 
@@ -143,9 +145,10 @@ En termes d'implémentation, le DDPM conditionnel n'est pas très différent du 
 
 L'encodage du pas de temps se fait de la même façon que pour l'implémentation du DDPM présentée dans le chapitre 3. Nous utilisons une fonction d'encodage sinusoïdale pour transformer le pas de temps $t$ en un vecteur d'embedding de dimension 512, qui est ensuite projeté à la dimension des canaux du modèle de diffusion et injecté dans les blocks de ResNet.\\
 
+
 \subsubsection{Encodage de la Classe}
 
-L'encodage de la classe (ou de la condition $y$ plus généralement), quant à lui, est réalisé suivant une table de correspondance, qui associe à chaque classe un vecteur d'embedding de dimension 512. Par exemple, pour le dataset MNIST, qui comporte 10 classes (les chiffres de 0 à 9), nous avons une table d'embeddings de taille $10 \times 512$. Lors de l'entraînement, pour les exemples conditionnels, nous récupérons l'embedding correspondant à la classe $y$ associée à l'image, tandis que pour les exemples inconditionnels, nous utilisons un token spécial (un vecteur nul) pour représenter l'absence de conditionnement.\\
+L'encodage de la classe (ou de la condition $y$ plus généralement), quant à lui, est réalisé suivant une table de correspondance, qui associe à chaque classe un vecteur d'embedding de dimension 512. Par exemple, pour le jeu de données MNIST, qui comporte 10 classes (les chiffres de 0 à 9), nous avons une table d'embeddings de taille $10 \times 512$. Lors de l'entraînement, pour les exemples conditionnels, nous récupérons l'embedding correspondant à la classe $y$ associée à l'image, tandis que pour les exemples inconditionnels, nous utilisons un token spécial (un vecteur nul) pour représenter l'absence de conditionnement.\\
 
 La figure \ref{fig:class_encoding} illustre l'encodage de la classe.\\
 
@@ -169,7 +172,7 @@ La figure \ref{fig:class_encoding} illustre l'encodage de la classe.\\
 
 Nous avons alors un vecteur d'embedding de classe $y_{emb}$ de dimension 512, qui est injecté dans les différentes "couches" du modèle de diffusion, de la même manière que le vecteur d'encodage du pas de temps.\\
 
-Notons que dans notre implémentation, nous avons choisi d'appliquer un dropout de classe avec une probabilité de 0.2, ce qui signifie que 20\% des exemples présentés au modèle pendant l'entraînement sont inconditionnels (avec un token nul pour la classe), tandis que les 80\% restants sont conditionnels (avec la classe associée). Avec un dataset de taille suffisante, ce ratio permet au modèle d'apprendre à générer des images réalistes à la fois avec et sans conditionnement, ce qui est essentiel pour le bon fonctionnement de la Classifier-Free Guidance.\\
+Notons que dans notre implémentation, nous avons choisi d'appliquer un dropout de classe avec une probabilité de 0.2, ce qui signifie que 20\% des exemples présentés au modèle pendant l'entraînement sont inconditionnels (avec un token nul pour la classe), tandis que les 80\% restants sont conditionnels (avec la classe associée). Avec un jeu de données de taille suffisante, ce ratio permet au modèle d'apprendre à générer des images réalistes à la fois avec et sans conditionnement, ce qui est essentiel pour le bon fonctionnement de la Classifier-Free Guidance.\\
 
 Précisons aussi que les paramètres de la table de correspondance des classes (les embeddings) sont appris conjointement avec les autres paramètres du modèle de diffusion pendant l'entraînement, ce qui permet au modèle d'apprendre des représentations de classe adaptées à la tâche de génération.\\
 
@@ -269,7 +272,7 @@ Ayant présenté l'architecture d'un block de ResNet conditionnel, nous pouvons 
 \begin{algorithm}[H]
 \DontPrintSemicolon
 \SetAlgoLined
-\textbf{Entrées :} Dataset $\mathcal{D}=\{(x_0,y)\}$, modèle de diffusion conditionnel $\epsilon_\theta$, table d'embeddings $E$, probabilité de dropout $p_{\text{uncond}}$\;\\
+\textbf{Entrées :} Jeu de données $\mathcal{D}=\{(x_0,y)\}$, modèle de diffusion conditionnel $\epsilon_\theta$, table d'embeddings $E$, probabilité de dropout $p_{\text{uncond}}$\;\\
 \textbf{Initialisation :}\\
 Construire la suite de bruitage $\{\alpha_t\}_{t=1}^T$ et les produits cumulés $\{\bar{\alpha}_t\}_{t=1}^T$\;\\
 Initialiser l'optimiseur sur les paramètres de $\epsilon_\theta$ et de $E$\;\\
@@ -334,17 +337,19 @@ Construire l'embedding inconditionnel $y_{\varnothing} \leftarrow \mathbf{[0, ..
 
 L'algorithme d'inférence présenté en \ref{alg:cfg_inference} suit les étapes classiques d'échantillonnage d'un DDPM, avec l'ajout de la double prédiction (conditionnelle et inconditionnelle) et de la combinaison des scores selon la formule de la CFG pour guider le processus de génération vers la classe cible $y$.\\
 
-\underline{Note:} La formule utilisée dans l'algorithme d'inférence pour combiner les scores conditionnel et inconditionnel est une reformulation de la formule \ref{eq:cfg_combined}, où nous avons posé $s \leftarrow 1 + s$, et appliqué la formule dans le cadre d'un DDPM. Pour $s=0$, nous avons une génération purement conditionnelle, pour $s>0$, nous avons une guidance renforcée, et pour $s<0$, nous avons une guidance atténuée (inconditionnelle pour $s=-1$).\\
+\underline{Note:} La formule utilisée dans l'algorithme d'inférence pour combiner les scores conditionnel et inconditionnel est une reformulation de la formule \ref{eq:cfg_combined}, où nous avons posé $s \leftarrow 1 + s$, et appliqué la formule dans le cadre d'un DDPM. Pour $s=0$, nous avons une génération purement conditionnelle, pour $s>0$, nous avons un guidage renforcé, et pour $s<0$, nous avons un guidage atténuée (inconditionnelle pour $s=-1$).\\
 
 \section{Résultats expérimentaux}
 
-Les résultats expérimentaux présentés dans cette section ont été obtenus en appliquant les algorithmes d'entraînement et d'inférence détaillés précédemment à un modèle de diffusion avec Classifier-Free Guidance, suivant les configurations d'architecture définies précédemment, sur le dataset MNIST. Le modèle a été entraîné pendant 120 epochs, avec un batch size de 128, et une probabilité de dropout de classe de 0.2.\\
+Les résultats expérimentaux présentés dans cette section ont été obtenus en appliquant les algorithmes d'entraînement et d'inférence détaillés précédemment à un modèle de diffusion avec Classifier-Free Guidance, suivant les configurations d'architecture définies précédemment, sur le jeu de données MNIST. Le modèle a été entraîné pendant 120 epochs, avec un batch size de 128, et une probabilité de dropout de classe de 0.2.\\
+
+Afin de permettre une observation plus aisée des détails de génération, des versions agrandies des planches de résultats sont consultables en annexe \ref{annexe:figures_grandes}.\\
 
 L'implémentation a été réalisée en PyTorch, et se base sur une implémentation de \textit{T. Matsuzaki} \cite{tsmatz_cfg}, que nous avons adaptée et modifiée pour notre projet.\\
 
 \subsection{Qualité de la génération inconditionnelle/conditionnelle sur MNIST}
 
-Nous avons évalué la qualité de la génération à la fois en mode inconditionnel (sans conditionnement de classe, $s=-1$) et en mode conditionnel (avec conditionnement de classe, pour la classe 5, $s=0$), en générant des échantillons à partir du modèle entraîné. 
+Nous avons évalué la qualité de la génération à la fois en mode inconditionnel (sans conditionnement de classe, $s=-1$) et en mode conditionnel (avec conditionnement de classe, $s=0$), en générant des échantillons à partir du modèle entraîné. \\
 
 \begin{figure}[htbp]
     \centering
@@ -380,11 +385,21 @@ Nous avons évalué la qualité de la génération à la fois en mode inconditio
     \label{fig:cfg_results}
 \end{figure}
 
-La figure \ref{fig:cfg_results} montre que le modèle est capable de générer des images réalistes à la fois en mode inconditionnel (figure \ref{fig:cfg_uncond}) et en mode conditionnel (figure \ref{fig:cfg_cond0}, \ref{fig:cfg_cond3}). En mode inconditionnel, les images générées sont variées et ne correspondent pas à une classe spécifique, tandis qu'en mode conditionnel, les images générées sont clairement reconnaissables comme appartenant à la classe 5. En augmentant encore davantage le facteur d'échelle de guidage (figure \ref{fig:cfg_cond10}, $s=10$), nous observons que les images générées sont encore plus fortement guidées vers la classe 5, mais au prix d'une perte de diversité: les images générées sont très similaires les unes aux autres, et peuvent presque sembler saturées par les caractéristiques de la classe 5 (les traits sont très épais et marqués afin de maximiser la reconnaissance de la classe 5).\\
+La figure \ref{fig:cfg_results} montre que le modèle est capable de générer des images réalistes à la fois en mode inconditionnel (figure \ref{fig:cfg_uncond}) et en mode conditionnel (figure \ref{fig:cfg_cond0}, \ref{fig:cfg_cond10}). En mode inconditionnel, les images générées sont variées et ne correspondent pas à une classe spécifique, tandis qu'en mode conditionnel, les images générées sont clairement reconnaissables comme appartenant à la classe 5. En augmentant encore davantage le facteur d'échelle de guidage (figure \ref{fig:cfg_cond10}, $s=10$), nous observons que les images générées sont encore plus fortement guidées vers la classe 5, mais au prix d'une perte de diversité: les images générées sont très similaires les unes aux autres, et peuvent presque sembler saturées par les caractéristiques de la classe 5 (les traits sont très épais et marqués afin de maximiser la reconnaissance de la classe 5).\\
 
-En revanche, en mode "semi"-conditionnel ($s=-0.5$), nous observons un semblant d'entre-deux, où les images générées présentent des caractéristiques de la classe 5, mais ne sont pas aussi nettes et reconnaissables que dans le mode conditionnel pur ($s=0$). Les images générées sont dans un espace intermédiaire et qui se trouve à priori ni dans la région de l'espace des images correspondant à la classe 5, ni dans la région correspondant à une génération inconditionnelle. Nous avons donc une génération qui est à la fois influencée par la classe cible, mais aussi par les caractéristiques générales des images du dataset, mais où les images perdent en qualité et en réalisme.\\
+En revanche, en mode "semi"-conditionnel ($s=-0.5$), nous observons un semblant d'entre-deux, où les images générées présentent des caractéristiques de la classe 5, mais ne sont pas aussi nettes et reconnaissables que dans le mode conditionnel pur ($s=0$). Les images générées sont dans un espace intermédiaire et qui se trouve à priori ni dans la région de l'espace des images correspondant à la classe 5, ni dans la région correspondant à une génération inconditionnelle. Nous avons donc une génération qui est à la fois influencée par la classe cible, mais aussi par les caractéristiques générales des images du jeu de données, mais où les images perdent en qualité et en réalisme.\\
 
-\underline{Note:} Nous avons également entrainé un modèle de diffusion conditionnel avec Classifier-Free Guidance sur le dataset CIFAR-10. L'entraînement a été réalisé pendant 300 epochs, avec un batch size de 128, et une probabilité de dropout de classe de 0.2. 
-Les résultats obtenus sont donnés en annexe \ref{annexe:cfg_cifar10}, et présentent les limites du modèle, qui parvient à générer des images reconnaissables à première vue, mais qui présentent des artefacts et une qualité globale inférieure à celle obtenue sur MNIST. Si nous ne pouvons nous attendre à des images générées de très haute qualité (les images du dataset restent de taille 32x32, et donc de qualité limitée), nous pouvons néanmoins observer que le modèle est capable de générer des images qui sont reconnaissables comme appartenant à la classe cible, ce qui montre que la Classifier-Free Guidance fonctionne également sur ce dataset plus complexe.Il serait cependant pertinent de considérer une architecture plus complexe (par exemple, en augmentant la profondeur du modèle) pour améliorer la qualité des images générées sur ce dataset (ou d'autres, du type ImageNet).\\
+\underline{Note:} Nous avons également entrainé un modèle de diffusion conditionnel avec Classifier-Free Guidance sur le jeu de données CIFAR-10. L'entraînement a été réalisé pendant 300 epochs, avec un batch size de 128, et une probabilité de dropout de classe de 0.2. Les résultats obtenus sont donnés en annexe \ref{annexe:cfg_cifar10}, et présentent certaines limites du modèle. 
 
+\section{Conclusion}
 
+Ce projet nous a permis d'étudier et d'implémenter de manière progressive les différents mécanismes de guidage pour la génération d'images par les modèles de diffusion.\\
+
+Nous avons d'abord abordé les modèles DDPM dans leur formulation de base. Si ces derniers démontrent une excellente capacité à produire des échantillons fidèles à la distribution de données initiale et suffisamment diversifiés, ils présentent une limite majeure : nous n'avons à priori pas de contrôle sur les caractéristiques des images générées, ce qui peut être problématique dans de nombreuses applications où nous souhaitons générer des images avec des propriétés spécifiques (par exemple, appartenant à une classe donnée).\\
+
+La \textit{Classifier Guidance} a donc été introduite pour pallier à cette limitation, en exploitant un classifieur externe pour guider le processus de génération vers une classe cible. Cette approche permet d'obtenir un contrôle explicite sur les caractéristiques des images générées, mais elle présente également des inconvénients importants. En effet, si cette méthode a montré des résultats relativement satisfaisants en termes de qualité et de respect de la conditionnalité, elle reste coûteuse en pratique. En effet, elle nécessite d'entraîner et d'évaluer à chaque pas de temps un classifieur spécifiquement robuste au bruit, ce qui alourdit considérablement l'architecture globale ainsi que la phase d'inférence.\\
+
+La \textit{Classifier-Free Guidance} apporte alors une solution à la fois plus simple et plus performante. En adaptant l'entraînement de notre modèle pour apprendre conjointement les distributions conditionnelle et inconditionnelle, nous parvenons à guider la génération de manière interne, sans recourir à un modèle tiers. 
+Les résultats expérimentaux obtenus confirment que cette méthode permet de parvenir à un compromis entre qualité, diversité et respect de la conditionnalité, par le simple ajustement du facteur d'échelle $s$.\\
+
+À ce titre, le standard de la génération conditionnelle par les modèles de diffusion est désormais la \textit{Classifier-Free Guidance}, qui est largement utilisée dans les modèles de diffusion les plus récents (Stable Diffusion, DALL-E 2, etc.), et qui a permis d'obtenir des résultats plus que convaincants en termes de qualité et de respect de la conditionnalité.\\
