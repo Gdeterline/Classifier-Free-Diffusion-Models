@@ -310,65 +310,19 @@ L'intérêt d'appliquer un MLP à cet encodage sinusoïdal est de permettre au m
 
 \subsubsection{Blocks ResNet}
 
-Afin de prendre en compte le pas de temps dans les différentes étapes du processus de diffusion, on applique une fonction $SiLU$ (Sigmoid Linear Unit) à la sortie du MLP, puis une couche linéaire finale pour projeter ce vecteur d'encodage du pas de temps à la dimension des canaux du modèle de diffusion (par exemple, 128 ou 256 canaux). ALors, ce vecteur projeté (noté $t_{prj}$) est injecté dans les différents blocks de ResNet du modèle. Cette injection se fait généralement par addition (c'est-à-dire suivant la formule $out = out + t_prj$), ce qui permet au modèle de diffusion d'apprendre à ajuster sa prédiction en fonction du niveau de bruit présent dans l'image à chaque étape du processus de génération.\\
+Afin de prendre en compte les différentes étapes du processus de diffusion, le modèle intègre des blocks de ResNet, dans lesquels le pas de temps est injecté.
 
-La figure \ref{fig:resnet_block_ddpm} illustre un block de ResNet typique utilisé dans le modèle de diffusion, avec l'injection du pas de temps projeté.\\
+Le pas de temps, initialement encodé en un vecteur de dimension 512, est projeté à la dimension des canaux du modèle de diffusion (par exemple, 128 ou 256 canaux). Ce vecteur, noté $t_{prj}$, est alors additionné à la sortie de la première couche de convolution du block de ResNet, suivant la formule \ref{eq:resnet_time_injection} :\\
 
-\begin{figure}[htbp]
-\centering
-    \resizebox{!}{0.3\paperheight}{
-    \begin{tikzpicture}[node distance=0.5cm, every node/.style={font=\scriptsize, thick}]
-        % --- CHEMIN PRINCIPAL ---
-        \node (in) {Entrée $x$ ($C_{in}$)};
-        \node[draw, fill=blue!5, below=0.3cm of in, minimum width=3cm] (n1) {GroupNorm + SiLU};
-        \node[draw, fill=blue!10, below=of n1, minimum width=3cm] (c1) {Conv2D (3x3)};
-        
-        % Zone d'injection
-        \node[draw, circle, fill=yellow!30, below=0.6cm of c1] (plus_emb) {+};
-        
-        \node[draw, fill=blue!5, below=0.7cm of plus_emb, minimum width=3cm] (n2) {GroupNorm + SiLU + Dropout};
-        \node[draw, fill=blue!10, below=of n2, minimum width=3cm] (c2) {Conv2D (3x3)};
-        
-        \node[draw, circle, fill=orange!20, below=0.6cm of c2] (plus_res) {+};
-        \node[below=0.3cm of plus_res] (out) {Sortie ($C_{out}$)};
+\begin{equation}
+\text{out} = \text{out} + t_{prj}
+\label{eq:resnet_time_injection}
+\end{equation}
 
-        % --- CONDITIONNEMENT (À droite) ---
-        \node[draw, fill=orange!5, right=0.8cm of plus_emb, align=left, font=\tiny, text width=1.5cm] (t_prj) {Proj. Temps\\(SiLU + Linear)};
-        
-        \draw[<-] (t_prj.east) -- ++(0.3,0) node[right, font=\tiny] {$t_{emb}$};
+Le modèle de diffusion est alors capable d'apprendre à ajuster sa prédiction en fonction du niveau de bruit présent dans l'image à chaque étape du processus de génération.\\
 
-        % --- CHEMIN RÉSIDUEL (À gauche) ---
-        \node[draw, fill=gray!10, left=1.2cm of plus_emb, font=\tiny, text width=2.5cm, align=center] (res_proj) {
-            \begin{tabular}{c} 
-                Skip Connection \\ 
-                (Linear Projection) 
-            \end{tabular}
-        };
+L'architecture complète d'un block de ResNet conditionnel pour un DDPM avec Classifier-Free Guidance est présentée en annexe \ref{annexe:cfg_resnet_architecture}, figure \ref{fig:resnet_block_ddpm}.\\
 
-        % --- FLÈCHES CHEMIN PRINCIPAL ---
-        \draw[-{Stealth}] (in) -- (n1);
-        \draw[-{Stealth}] (n1) -- (c1);
-        \draw[-{Stealth}] (c1) -- (plus_emb);
-        \draw[-{Stealth}] (plus_emb) -- (n2);
-        \draw[-{Stealth}] (n2) -- (c2);
-        \draw[-{Stealth}] (c2) -- (plus_res);
-        \draw[-{Stealth}] (plus_res) -- (out);
-
-        % --- FLÈCHES CONDITIONNEMENT ---
-        \draw[-{Stealth}] (t_prj.west) -- (plus_emb.east) node[midway, above, font=\tiny] {Shift};
-
-        % --- FLÈCHE RÉSIDUELLE (SKIP CONNECTION) ---
-        % 1. Part de la GAUCHE (west) de x
-        % 2. Descend et contourne pour arriver sur le haut du bloc gris (res_proj)
-        % 3. Sort par le bas (south) vers le bloc d'addition finale
-        \draw[-{Stealth}] (in.west) -- ++(-1.8,0) -- (res_proj.north);
-        \draw[-{Stealth}] (res_proj.south) |- (plus_res.west);
-    \end{tikzpicture}
-    }
-    \caption{Architecture d'un block de ResNet pour un DDPM.}
-    \label{fig:resnet_block_ddpm}
-\end{figure}
-\newpage
 \subsubsection{Attention Blocks}
 
 Si nous nous référons à la figure \ref{fig:unet}, nous pouvons observer qu'en plus des blocks de ResNet, le modèle de diffusion intègre également des blocks d'Attention à certains endroits stratégiques de l'architecture (notamment dans les étapes intermédiaires du U-Net). Ces blocks d'Attention permettent au modèle de diffusion de capturer les dépendances à long terme dans l'image, ce qui est crucial pour générer des images cohérentes et de haute qualité.\\
