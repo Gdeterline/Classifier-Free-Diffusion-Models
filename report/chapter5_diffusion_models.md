@@ -9,7 +9,7 @@ Dans cette partie, nous allons aborder les principes généraux ainsi que l'arch
 
 Avant d'aborder les DDPM, nous allons expliquer brièvement les modèles à base de score et leur lien avec les modèles de diffusion.
 \subsection{Modèles de diffusion basées sur la fonction de score}
-\noindent Supposons que nous disposions d'un ensemble de données $\mathcal{D} = \{x_1, x_2, \dots, x_n\}$ où chaque échantillon est issu d'une distribution multimodale. Par exemple, le jeu de données MNIST regroupe des chiffres de 0 à 9, où chaque $x_i$ représente une classe spécifique. L'objectif est de concevoir un \textbf{modèle génératif} capable de modéliser l'intégralité de cette distribution de données. Une fois le modèle entraîné, nous pourrons synthétiser de nouvelles données par \textbf{échantillonnage} à partir de la distribution apprise.
+\noindent Supposons que nous disposions d'un ensemble de données $\mathcal{D} = \{x_1, x_2, \dots, x_n\}$ où chaque échantillon est issu d'une distribution multimodale. Par exemple, le jeu de données MNIST regroupe des chiffres de 0 à 9, où chaque $x_i$ représente une classe spécifique. L'objectif est de concevoir un \textbf{modèle génératif} capable de modéliser l'intégralité de cette distribution d'images. Une fois le modèle entraîné, nous pourrons synthétiser de nouvelles images par \textbf{échantillonnage} à partir de la distribution apprise.
 
 Pour construire un modèle génératif, nous devons d'abord trouver une façon de poser le problème, notamment en utilisant un modèle basé sur la vraisemblance pour modéliser directement la densité de probabilité. Considérons une fonction $f_\theta(\mathbf{x})$, paramétrée par un paramètre apprenable $\theta$. Nous pouvons définir une fonction de densité de probabilité (pdf) via l'expression :
 \begin{equation}
@@ -21,9 +21,9 @@ où $Z_\theta$ est un paramètre de normalisation dépendant de $\theta$, qui as
     \max_\theta \sum_{i=1}^N \log p_\theta(\mathbf{x}_i)
     \label{dd}
 \end{equation}
-Cependant, l'équation (\ref{dd}) impose que $p_\theta(\mathbf{x})$ soit une fonction de densité de probabilité normalisée. Pour calculer $p_\theta(\mathbf{x})$, il est donc nécessaire d'évaluer la constante de normalisation $Z_\theta$, une quantité généralement \textit{intractable} pour une fonction $f_\theta(\mathbf{x})$ générale. 
+Cependant, l'équation (\ref{dd}) impose que $p_\theta(\mathbf{x})$ soit une fonction de densité de probabilité. Pour calculer $p_\theta(\mathbf{x})$, il est donc nécessaire d'évaluer la constante de normalisation $Z_\theta$, une quantité généralement incalculable pour une fonction $f_\theta(\mathbf{x})$ générale. 
 
-Pour contourner cette difficulté, l'approche proposée par \cite{DBLP:journals/corr/abs-1907-05600} repose sur l'estimation de la fonction de score $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Le modèle de score $s_\theta(\mathbf{x})$ peut être paramétré sans tenir compte de la constante de normalisation $Z_\theta$ en appliquant le gradient sur l'équation (\ref{zz}) selon le développement suivant :
+Pour contourner cette difficulté, l'approche proposée par \cite{DBLP:journals/corr/abs-1907-05600} repose sur l'estimation de la fonction de score $s_{\theta}(x)=\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Le modèle de score peut être paramétré sans tenir compte de la constante de normalisation $Z_\theta$ en appliquant le gradient sur l'équation (\ref{zz}) selon le développement suivant :
 
 \begin{align}
     s_\theta(\mathbf{x}) &= \nabla_{\mathbf{x}} \log p_\theta(\mathbf{x}) \\
@@ -41,7 +41,7 @@ De manière analogue aux modèles basés sur la vraisemblance, nous pouvons entr
 \end{equation}
 Intuitivement, cette divergence compare le carré de la distance $\ell_2$ entre le score réel des données (\textit{ground-truth}) et le modèle basé sur le score. Cependant, le calcul direct de cette mesure est irréalisable car il nécessite l'accès au score inconnu des données, $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Heureusement, il existe une famille de méthodes appelées \textit{score matching} qui permettent de minimiser la divergence de Fisher sans connaître explicitement le score réel des données. Pour plus de détails sur la transformation mathématique permettant de s'affranchir du score inconnu via l'intégration par parties, on pourra se référer à l'annexe \ref{annexe:score_matching}. Ces objectifs de \textit{score matching} peuvent être directement estimés sur un jeu de données et optimisés par descente de gradient stochastique, de manière analogue à l'objectif de log-vraisemblance utilisé pour l'entraînement des modèles classiques.\\
 
-\underline{Note: Relation entre DDPM et modèles basés sur le score}
+\subsection{Relation entre DDPM et modèles basés sur le score}
 
 Avant d'aborder les modèles de diffusion probabilistes (DDPM), il est essentiel d'établir le lien théorique avec les modèles basés sur le score (\textit{Score-based Generative Models}). Dans l'approche par le score, on entraîne un réseau de neurones à prédire le gradient de la log-densité de probabilité, noté $\nabla_{\mathbf{x}} \log p_{\theta}(\mathbf{x})$, qui indique la direction vers les régions de haute densité de la distribution des données. 
 
@@ -89,7 +89,7 @@ où $\alpha_t = 1 - \beta_t$ et $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$. Nous 
 \underline{Note :} Afin de pouvoir écrire l'équation (\ref{eq:diffusion_directe_xt_x0}), nous devons faire l'hypothèse d'une chaîne de Markov, c'est-à-dire que $x_t$ ne dépend que de $x_{t-1}$ et pas des étapes précédentes. Cette hypothèse est raisonnable dans le contexte de la diffusion, car à chaque étape, nous ajoutons du bruit de manière indépendante, ce qui rend les étapes précédentes non informatives pour la distribution de $x_t$ une fois que nous connaissons $x_{t-1}$.\\
 
 \subsection{Processus de diffusion inverse (\textit{Reverse Diffusion})}
-
+\label{sec:diff_inv}
 Lorsque $T \to \infty$, l'échantillon  $x_T$ devient quasiment une distribution gaussienne isotrope. Par conséquent, si nous parvenons à apprendre la distribution inverse $q(x_{t-1} | x_t)$, nous pouvons échantillonner $x_T$ à partir de $\mathcal{N}(0, \mathbf{I})$, exécuter le processus inverse et obtenir un échantillon de $q(x_0)$. Nous pouvons alors générer un nouveau point de donnée issu de la distribution d'origine. Il s'agit donc de savoir comment modéliser ce processus de diffusion inverse.\\
 
 \subsubsection{Approximation du processus inverse par un réseau de neurones}
@@ -132,7 +132,7 @@ L'analyse des termes de l'ELBO permet de mieux comprendre les objectifs du modè
 
 \subsubsection{Rendre le processus inverse traitable}
 
-Comme nous avions commencé à le mentionner dans la section \ref{sec:diffusion_inverse}, le processus de diffusion inverse est mathématiquement intraitable, car il nécessite de calculer des intégrales impliquant la distribution de données $q(x_0)$. En revanche, nous pouvons calculer $q(x_{t-1} | x_t, x_0)$, qui est la distribution de $x_{t-1}$ sachant $x_t$ et $x_0$. En utilisant les propriétés des distributions gaussiennes, nous pouvons montrer que $q(x_{t-1} | x_t, x_0)$ est également une distribution gaussienne dont la moyenne et la variance peuvent être calculées de manière analytique. 
+Comme nous avions commencé à le mentionner dans la section \ref{sec:diff_inv}, le processus de diffusion inverse est mathématiquement intraitable, car il nécessite de calculer des intégrales impliquant la distribution de données $q(x_0)$. En revanche, nous pouvons calculer $q(x_{t-1} | x_t, x_0)$, qui est la distribution de $x_{t-1}$ sachant $x_t$ et $x_0$. En utilisant les propriétés des distributions gaussiennes, nous pouvons montrer que $q(x_{t-1} | x_t, x_0)$ est également une distribution gaussienne dont la moyenne et la variance peuvent être calculées de manière analytique. 
 
 \begin{equation}
 q(x_{t-1} | x_t, x_0) = \mathcal{N}(x_{t-1} ; \tilde{\mu}_t(x_t, x_0), \tilde{\beta}_t \mathbf{I})
@@ -449,7 +449,7 @@ La figure \ref{fig:ddpm_algos_combined} présente les algorithmes d'entraînemen
     \label{fig:ddpm_algos_combined} 
 \end{figure}
 
-Si les algorithmes présentés (\ref{fig:ddpm_algos_combined}) sont assez cohérents au regard des principes théoriques que nous avons exposés, il demeure un point d'intérêt que nous n'avons pas évoqué. En effet, lors de l'échantillonnage, le modèle de diffusion utilise une formule légèrement différente de celle présentée dans l'équation \ref{eq:eq:mu_q_x_t-1_xt_epsilon} pour mettre à jour l'état $x_{t-1}$ à partir de $x_t$. En effet, la formule utilisée pour l'échantillonnage est la suivante :\\
+Si les algorithmes présentés (\ref{fig:ddpm_algos_combined}) sont assez cohérents au regard des principes théoriques que nous avons exposés, il demeure un point d'intérêt que nous n'avons pas évoqué. En effet, lors de l'échantillonnage, le modèle de diffusion utilise une formule légèrement différente de celle présentée dans l'équation \ref{eq:mu_q_x_t-1_xt_epsilon} pour mettre à jour l'état $x_{t-1}$ à partir de $x_t$. En effet, la formule utilisée pour l'échantillonnage est la suivante :\\
 
 \begin{equation}
 x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \epsilon_\theta(x_t, t) \right) + \sigma_t z
