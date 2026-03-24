@@ -280,7 +280,8 @@ Nous pouvons observer que le modèle prend en entrée une image bruitée $x_t$, 
 
 \subsubsection{Encodage du Pas de Temps}
 
-Il s'agit dans un premier temps d'encoder le pas de temps $t$. L'encodage du pas de temps est une étape cruciale, car il permet au modèle de diffusion de prendre en compte le niveau de bruit présent dans l'image à chaque étape du processus de génération. De la même façon que pour les DDPMs inconditionnels, nous utilisons un encodage sinusoïdal (positional encoding, noté $PE(t)$ dans la suite) pour représenter le pas de temps $t$. Cet encodage est ensuite transformé à l'aide d'un MLP (Linear + SiLU + Linear) pour obtenir un vecteur de dimension 512, qui est ensuite injecté dans les différents blocks de ResNet du modèle. \\
+L'encodage du pas de temps est une étape cruciale, car il permet au modèle de diffusion de prendre en compte le niveau de bruit présent dans l'image à chaque étape du processus de génération. En effet, le même réseau de neurones est utilisé pour prédire le bruit à chaque étape, et il doit donc être capable de différencier les différentes étapes du processus de diffusion pour ajuster sa prédiction en conséquence.
+Nous utilisons un encodage sinusoïdal (positional encoding, noté $PE(t)$ dans la suite) pour représenter le pas de temps $t$. Cet encodage est ensuite transformé à l'aide d'un MLP (Linear + SiLU + Linear) pour obtenir un vecteur de dimension 512, qui est ensuite injecté dans les différents blocks de ResNet du modèle. \\
 
 Cet encodage permet au modèle d'apprendre à différencier les différentes étapes du processus de diffusion et à ajuster sa prédiction en conséquence. La figure \ref{fig:time_encoding} illustre l'encodage du pas de temps.\\
 
