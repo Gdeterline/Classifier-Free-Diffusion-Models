@@ -8,42 +8,57 @@ Les modèles de diffusion constituent une nouvelle classe de modèles générati
 Dans cette partie, nous allons aborder les principes généraux ainsi que l'architecture de ces modèles. \textbf{Dans la suite de l'étude, nous nous intéresserons particulièrement aux modèles probabilistes de diffusion par débruitage (\textit{Denoising Diffusion Probabilistic Models}, DDPM)} proposés par \textit{Ho et al.} \cite{Ho2020}, tout en notant qu'il existe d'autres approches basées sur la fonction de score (\textit{score-based models}).\\
 
 Avant d'aborder les DDPM, nous allons expliquer brièvement les modèles à base de score et leur lien avec les modèles de diffusion.
-\subsection{Modèles de diffusion basées sur la fonction de score}
-\noindent Supposons que nous disposions d'un ensemble de données $\mathcal{D} = \{x_1, x_2, \dots, x_n\}$ où chaque échantillon est issu d'une distribution multimodale. Par exemple, le jeu de données MNIST regroupe des chiffres de 0 à 9, où chaque $x_i$ représente une classe spécifique. L'objectif est de concevoir un \textbf{modèle génératif} capable de modéliser l'intégralité de cette distribution d'images. Une fois le modèle entraîné, nous pourrons synthétiser de nouvelles images par \textbf{échantillonnage} à partir de la distribution apprise.
 
-Pour construire un modèle génératif, nous devons d'abord trouver une façon de poser le problème, notamment en utilisant un modèle basé sur la vraisemblance pour modéliser directement la densité de probabilité. Considérons une fonction $f_\theta(\mathbf{x})$, paramétrée par un paramètre apprenable $\theta$. Nous pouvons définir une fonction de densité de probabilité (pdf) via l'expression :
+\subsection{Modèles de diffusion basées sur la fonction de score}
+
+Considérons une fonction $f_\theta(\mathbf{x})$, paramétrée par un paramètre apprenable $\theta$. Nous pouvons définir une fonction de densité de probabilité à travers l'expression :
 \begin{equation}
     p_\theta(\mathbf{x}) = \frac{e^{-f_\theta(\mathbf{x})}}{Z_\theta}
     \label{zz}
 \end{equation}
-où $Z_\theta$ est un paramètre de normalisation dépendant de $\theta$, qui assure que $p_\theta$ estimée soit une distribution de probabilité telle que $\int p_\theta(\mathbf{x}) d\mathbf{x} = 1$. Ici, $f_\theta$ représente notre réseau de neurones. Nous pouvons alors assurer l'apprentissage de $p_\theta(\mathbf{x})$ en maximisant la log-vraisemblance des données selon la formulation :
-\begin{equation}
-    \max_\theta \sum_{i=1}^N \log p_\theta(\mathbf{x}_i)
-    \label{dd}
-\end{equation}
-Cependant, l'équation (\ref{dd}) impose que $p_\theta(\mathbf{x})$ soit une fonction de densité de probabilité. Pour calculer $p_\theta(\mathbf{x})$, il est donc nécessaire d'évaluer la constante de normalisation $Z_\theta$, une quantité généralement incalculable pour une fonction $f_\theta(\mathbf{x})$ générale. 
+où $Z_\theta$ est un paramètre de normalisation dépendant de $\theta$, qui assure que $p_\theta$ estimée soit une distribution de probabilité telle que $\int p_\theta(\mathbf{x}) d\mathbf{x} = 1$. Ici, $f_\theta$ représente notre réseau de neurones.\\
 
-Pour contourner cette difficulté, l'approche proposée par \cite{DBLP:journals/corr/abs-1907-05600} repose sur l'estimation de la fonction de score $s_{\theta}(x)=\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Le modèle de score peut être paramétré sans tenir compte de la constante de normalisation $Z_\theta$ en appliquant le gradient sur l'équation (\ref{zz}) selon le développement suivant :
+Plutôt que de modéliser directement la densité de probabilité $p_\theta(\mathbf{x})$, dont l'apprentissage se heurte à l'impossibilité de calculer la constante de normalisation $Z_\theta$, nous pouvons nous appuyer sur des modèles basés sur une fonction de score $s_{\theta}(\mathbf{x}) = \nabla_{\mathbf{x}} \log p_\theta(\mathbf{x})$.\\
 
-\begin{align}
-    s_\theta(\mathbf{x}) &= \nabla_{\mathbf{x}} \log p_\theta(\mathbf{x}) \\
-    &= \nabla_{\mathbf{x}} \log \left( \frac{e^{-f_\theta(\mathbf{x})}}{Z_\theta} \right) \\
-    &= \nabla_{\mathbf{x}} \left[ -f_\theta(\mathbf{x}) - \log Z_\theta \right] \\
-    &= -\nabla_{\mathbf{x}} f_\theta(\mathbf{x}) - \underbrace{\nabla_{\mathbf{x}} \log Z_\theta}_{0} \\
-    s_\theta(\mathbf{x}) &= -\nabla_{\mathbf{x}} f_\theta(\mathbf{x})
-\end{align}
+L'intérêt majeur de cette formulation réside dans le fait que le gradient du logarithme de la densité élimine la constante $Z_\theta$ (puisque $\nabla_{\mathbf{x}} \log Z_\theta = 0$), permettant ainsi de paramétrer le réseau de neurones sans évaluer l'intégrale de normalisation $Z_\theta$. L'entraînement consiste alors à minimiser l'écart entre le score du modèle et celui de la distribution réelle des données. Bien que ce dernier soit inconnu, l'utilisation de techniques de \textit{score matching} permet, via une transformation mathématique détaillée en annexe \ref{annexe:score_matching}, d'optimiser cet objectif directement par descente de gradient stochastique.
 
-Comme $Z_\theta$ ne dépend pas de $\mathbf{x}$, son gradient est nul, ce qui permet d'apprendre le score directement via le réseau de neurones $f_\theta$.
+%Les modèles basés sur le score proposent une alternative efficace aux approches classiques par maximum de vraisemblance. Plutôt que de modéliser directement la densité de probabilité $p_\theta(\mathbf{x})$, dont l'apprentissage se heurte à L'incalculabilité de la constante de normalisation $Z_\theta$, ces modèles s'appuient sur la fonction de score $s_{\theta}(\mathbf{x}) = \nabla_{\mathbf{x}} \log p_\theta(\mathbf{x})$. L'intérêt majeur de cette formulation réside dans le fait que le gradient du logarithme de la densité annule la constante $Z_\theta$, permettant ainsi de paramétrer le réseau de neurones sans évaluer l'intégrale de normalisation. L'entraînement consiste alors à minimiser l'écart entre le score du modèle et celui de la distribution réelle des données. Bien que ce dernier soit inconnu, l'utilisation de techniques de \textit{score matching} permet, via une transformation mathématique détaillée en annexe \ref{annexe:score_matching}, d'optimiser cet objectif directement par descente de gradient stochastique. 
 
-De manière analogue aux modèles basés sur la vraisemblance, nous pouvons entraîner des modèles basés sur le score en minimisant la divergence de Fisher entre la distribution du modèle et celle des données, définie par l'expression :
-\begin{equation}
-    \mathbb{E}_{p(\mathbf{x})} \left[ \| \nabla_{\mathbf{x}} \log p(\mathbf{x}) - \mathbf{s}_\theta(\mathbf{x}) \|_2^2 \right]
-\end{equation}
-Intuitivement, cette divergence compare le carré de la distance $\ell_2$ entre le score réel des données (\textit{ground-truth}) et le modèle basé sur le score. Cependant, le calcul direct de cette mesure est irréalisable car il nécessite l'accès au score inconnu des données, $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Heureusement, il existe une famille de méthodes appelées \textit{score matching} qui permettent de minimiser la divergence de Fisher sans connaître explicitement le score réel des données. Pour plus de détails sur la transformation mathématique permettant de s'affranchir du score inconnu via l'intégration par parties, on pourra se référer à l'annexe \ref{annexe:score_matching}. Ces objectifs de \textit{score matching} peuvent être directement estimés sur un jeu de données et optimisés par descente de gradient stochastique, de manière analogue à l'objectif de log-vraisemblance utilisé pour l'entraînement des modèles classiques.\\
+% \noindent Supposons que nous disposions d'un ensemble de données $\mathcal{D} = \{x_1, x_2, \dots, x_n\}$ où chaque échantillon est issu d'une distribution multimodale. Par exemple, le jeu de données MNIST regroupe des chiffres de 0 à 9, où chaque $x_i$ représente une classe spécifique. L'objectif est de concevoir un \textbf{modèle génératif} capable de modéliser l'intégralité de cette distribution d'images. Une fois le modèle entraîné, nous pourrons synthétiser de nouvelles images par \textbf{échantillonnage} à partir de la distribution apprise.
+
+% Pour construire un modèle génératif, nous devons d'abord trouver une façon de poser le problème, notamment en utilisant un modèle basé sur la vraisemblance pour modéliser directement la densité de probabilité. Considérons une fonction $f_\theta(\mathbf{x})$, paramétrée par un paramètre apprenable $\theta$. Nous pouvons définir une fonction de densité de probabilité (pdf) via l'expression :
+% \begin{equation}
+%     p_\theta(\mathbf{x}) = \frac{e^{-f_\theta(\mathbf{x})}}{Z_\theta}
+%     \label{zz}
+% \end{equation}
+% où $Z_\theta$ est un paramètre de normalisation dépendant de $\theta$, qui assure que $p_\theta$ estimée soit une distribution de probabilité telle que $\int p_\theta(\mathbf{x}) d\mathbf{x} = 1$. Ici, $f_\theta$ représente notre réseau de neurones. Nous pouvons alors assurer l'apprentissage de $p_\theta(\mathbf{x})$ en maximisant la log-vraisemblance des données selon la formulation :
+% \begin{equation}
+%     \max_\theta \sum_{i=1}^N \log p_\theta(\mathbf{x}_i)
+%     \label{dd}
+% \end{equation}
+% Cependant, l'équation (\ref{zz}) impose que $p_\theta(\mathbf{x})$ soit une fonction de densité de probabilité. Pour calculer $p_\theta(\mathbf{x})$, il est donc nécessaire d'évaluer la constante de normalisation $Z_\theta$, une quantité généralement incalculable pour une fonction $f_\theta(\mathbf{x})$ générale. 
+
+% Pour contourner cette difficulté, l'approche proposée par \cite{DBLP:journals/corr/abs-1907-05600} repose sur l'estimation de la fonction de score $s_{\theta}(x)=\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Le modèle de score peut être paramétré sans tenir compte de la constante de normalisation $Z_\theta$ en appliquant le gradient sur l'équation (\ref{zz}) selon le développement suivant :
+
+% \begin{align}
+%     s_\theta(\mathbf{x}) &= \nabla_{\mathbf{x}} \log p_\theta(\mathbf{x}) \\
+%     &= \nabla_{\mathbf{x}} \log \left( \frac{e^{-f_\theta(\mathbf{x})}}{Z_\theta} \right) \\
+%     &= \nabla_{\mathbf{x}} \left[ -f_\theta(\mathbf{x}) - \log Z_\theta \right] \\
+%     &= -\nabla_{\mathbf{x}} f_\theta(\mathbf{x}) - \underbrace{\nabla_{\mathbf{x}} \log Z_\theta}_{0} \\
+%     s_\theta(\mathbf{x}) &= -\nabla_{\mathbf{x}} f_\theta(\mathbf{x})
+% \end{align}
+
+% Comme $Z_\theta$ ne dépend pas de $\mathbf{x}$, son gradient est nul, ce qui permet d'apprendre le score directement via le réseau de neurones $f_\theta$.
+
+% De manière analogue aux modèles basés sur la vraisemblance, nous pouvons entraîner des modèles basés sur le score en minimisant l'écart entre le score du modèle et celui des données, défini par l'expression :
+% \begin{equation}
+%     \mathbb{E}_{p(\mathbf{x})} \left[ \| \nabla_{\mathbf{x}} \log p(\mathbf{x}) - \mathbf{s}_\theta(\mathbf{x}) \|_2^2 \right]
+% \end{equation}
+% Intuitivement, cette divergence compare le carré de la distance $\ell_2$ entre le score réel des données (\textit{ground-truth}) et le modèle basé sur le score. Cependant, le calcul direct de cette mesure est irréalisable car il nécessite l'accès au score inconnu des données, $\nabla_{\mathbf{x}} \log p(\mathbf{x})$. Heureusement, il existe une famille de méthodes appelées \textit{score matching} qui permettent de minimiser la divergence sans connaître explicitement le score réel des données. Pour plus de détails sur la transformation mathématique permettant de s'affranchir du score inconnu via l'intégration par parties, on pourra se référer à l'annexe \ref{annexe:score_matching}. Ces objectifs de \textit{score matching} peuvent être directement estimés sur un jeu de données et optimisés par descente de gradient stochastique, de manière analogue à l'objectif de log-vraisemblance utilisé pour l'entraînement des modèles classiques.\\
 
 \subsection{Relation entre DDPM et modèles basés sur le score}
 
-Avant d'aborder les modèles de diffusion probabilistes (DDPM), il est essentiel d'établir le lien théorique avec les modèles basés sur le score (\textit{Score-based Generative Models}). Dans l'approche par le score, on entraîne un réseau de neurones à prédire le gradient de la log-densité de probabilité, noté $\nabla_{\mathbf{x}} \log p_{\theta}(\mathbf{x})$, qui indique la direction vers les régions de haute densité de la distribution des données. 
+Avant d'aborder les modèles de diffusion probabilistes (DDPM), nous pouvons établir le lien  avec les modèles basés sur le score. Dans l'approche par le score, on entraîne un réseau de neurones à prédire le gradient de la log-densité de probabilité, noté $\nabla_{\mathbf{x}} \log p_{\theta}(\mathbf{x})$, qui indique la direction vers les régions de haute densité de la distribution des données. 
 
 Dans un processus de diffusion gaussien (DDPM), du bruit est injecté successivement jusqu'à obtenir une image totalement bruitée. On entraîne alors un réseau à prédire le bruit $\mathbf{\epsilon}$ ajouté à chaque pas de temps $t$. Mathématiquement, cette prédiction est équivalente au score de la distribution perturbée selon la relation :
 \begin{equation}
@@ -55,8 +70,10 @@ L'utilisation prédominante des DDPM s'explique principalement par la simplicit�
 \begin{equation}
     L_{\text{simple}} = \mathbb{E} \left[ \| \mathbf{\epsilon} - \mathbf{\epsilon}_\theta(\mathbf{x}_t, t) \|^2 \right]
 \end{equation}
-De plus, les modèles basés sur le score classiques souffrent souvent dans les régions de faible densité où le gradient est quasi nul, empêchant toute convergence. L'ajout successif de bruit dans le cadre des DDPM permet d'étaler les données sur tout l'espace de configuration. Le modèle dispose ainsi d'échantillons sur l'ensemble du domaine pour apprendre efficacement le score, représenté ici par le bruit.
-\newpage
+De plus, les modèles basés sur le score souffrent souvent dans les régions de faible densité où le gradient est quasi nul, empêchant toute convergence. L'ajout successif de bruit dans le cadre des DDPM permet d'étaler les données sur tout l'espace de configuration. Le modèle dispose ainsi d'échantillons sur l'ensemble du domaine pour apprendre efficacement le score, représenté ici par le bruit.\\
+
+Dans la suite, nous concentrerons notre étude sur les \textit{Denoising Diffusion Probabilistic Models (DDPM)}.
+
 \section{Denoising Diffusion Probabilistic Models (DDPM)}
 
 Nous proposons à présent d'orienter notre étude vers les modèles de diffusion par débruitage, plus précisément les Denoising Diffusion Probabilistic Models (DDPM) proposés par \textit{Ho et al.} \cite{Ho2020}. Ces modèles sont basés sur un processus de diffusion directe, dans lequel du bruit est ajouté progressivement à un échantillon de données, et un processus de diffusion inverse, dans lequel le modèle apprend à inverser ce processus de diffusion pour générer de nouvelles données à partir d'un échantillon bruité.\\
@@ -94,7 +111,7 @@ Lorsque $T \to \infty$, l'échantillon  $x_T$ devient quasiment une distribution
 
 \subsubsection{Approximation du processus inverse par un réseau de neurones}
 
-En pratique, la distribution $q(x_{t-1} | x_t)$ est intraitable car son estimation statistique nécessiterait des calculs impliquant l'ensemble de la distribution de données $q(x_0)$. Par conséquent, nous l'approximons plutôt, par un modèle paramétré $p_\theta$ (par exemple, un réseau de neurones). \\
+En pratique, la distribution $q(x_{t-1} | x_t)$ est incalculable car son estimation statistique nécessiterait des calculs impliquant l'ensemble de la distribution de données $q(x_0)$. Par conséquent, nous l'approximons plutôt par un modèle paramétré $p_\theta$ (par exemple, un réseau de neurones). \\
 
 Pour des valeurs de $\beta_t$ suffisamment petites, la distribution $q(x_{t-1} | x_t)$ est également gaussienne, ce qui nous permet de choisir $p_\theta$ comme une distribution gaussienne et de paramétrer simplement sa moyenne et sa variance. Plus précisément, nous pouvons définir $p_\theta$ comme suit :\\
 
@@ -130,7 +147,7 @@ L'analyse des termes de l'ELBO permet de mieux comprendre les objectifs du modè
     \item \textbf{ Denoising:} Le terme $\sum_{t=2}^T L_{t-1}$ représente l'écart entre les étapes de débruitage réelles et celles prédites par le modèle.\\
 \end{itemize}
 
-\subsubsection{Rendre le processus inverse traitable}
+\subsubsection{Approximation du processus de diffusion inverse}
 
 Comme nous avions commencé à le mentionner dans la section \ref{sec:diff_inv}, le processus de diffusion inverse est mathématiquement intraitable, car il nécessite de calculer des intégrales impliquant la distribution de données $q(x_0)$. En revanche, nous pouvons calculer $q(x_{t-1} | x_t, x_0)$, qui est la distribution de $x_{t-1}$ sachant $x_t$ et $x_0$. En utilisant les propriétés des distributions gaussiennes, nous pouvons montrer que $q(x_{t-1} | x_t, x_0)$ est également une distribution gaussienne dont la moyenne et la variance peuvent être calculées de manière analytique. 
 
@@ -139,7 +156,7 @@ q(x_{t-1} | x_t, x_0) = \mathcal{N}(x_{t-1} ; \tilde{\mu}_t(x_t, x_0), \tilde{\b
 \label{eq:q_x_t-1_xt_x0}
 \end{equation}
 
-Les détails de ce développement mathématique ne sont pas donnés dans ce rapport, mais peuvent être trouvés dans l'article \textit{What are Diffusion Models?} de L. Weng \cite{weng2021}. Nous pouvons toutefois donner l'expression de la moyenne de $q(x_{t-1} | x_t, x_0)$: \\
+Les détails de ce développement mathématique ne sont pas donnés dans ce rapport, mais peuvent être trouvés dans l'article \textit{What are Diffusion Models?} de L. Weng \cite{weng2021}. Nous pouvons toutefois donner l'expression de la moyenne de $q(x_{t-1} | x_t, x_0)$, notée $\tilde{\mu}_t(x_t, x_0)$, qui est donnée par l'équation \ref{eq:mu_q_x_t-1_xt_x0} et qui représente l'image "idéale" au pas de temps $t−1$ que nous devrions obtenir à partir de $x_t$ et $x_0$ si nous suivions le processus de diffusion inverse exact.\\
 
 \begin{equation}
 \tilde{\mu}_t(x_t, x_0) = \frac{\sqrt{\alpha_t} (1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} x_t + \frac{\sqrt{\bar{\alpha}_{t-1}} \beta_t}{1 - \bar{\alpha}_t} x_0
@@ -190,93 +207,12 @@ Dans cette section, nous présentons une architecture de DDPM standard, issue de
 
 \subsubsection{U-Net}
 
-Tout d'abord, le modèle de diffusion est basé sur une architecture de type U-Net, qui est largement utilisée dans les tâches de segmentation d'images et de génération. Le U-Net se compose d'un encodeur et d'un décodeur, avec des connexions de saut (skip connections) entre les couches correspondantes de l'encodeur et du décodeur afin de préserver les détails spatiaux de l'image tout au long du processus de génération.\\
+L'architecture de base du modèle de diffusion est un U-Net, qui se compose d'un encodeur extrayant des caractéristiques sémantiques globales à travers différents niveaux d'abstraction, et d'un décodeur chargé de la reconstruction des détails fins. Le passage par un « goulot d'étranglement » (on parle de \textit{bottleneck}) oblige le modèle à apprendre une représentation compacte et pertinente du contenu de l'image. 
+Par ailleurs, l'utilisation de connexions de saut (\textit{skip connections}) permet de réinjecter les informations spatiales de haute résolution (de l'encodeur) directement vers le décodeur. Ce mécanisme permet prédire précisément un bruit $\epsilon$ de même dimension que l'entrée, en évitant la perte de détails fins, inhérente aux phases de compression de l'encodeur.\\
 
-La figure \ref{fig:unet} illustre l'architecture générale du U-Net considéré. 
+Le modèle prend en entrée une image bruitée $x_t$, et, à chaque étape du processus de diffusion, il reçoit le pas de temps $t$, correspondant à l'étape actuelle du processus de diffusion, injecté dans les différents blocks de ResNet du modèle. Le modèle de diffusion apprend à prédire le bruit $\epsilon$ ajouté à l'image à chaque étape, en utilisant les informations du pas de temps pour ajuster sa prédiction en fonction du niveau de bruit présent dans l'image.\\
 
-\begin{figure}[htbp]
-    \centering
-% On passe à 70% de la largeur du texte pour une taille plus raisonnable
-    \resizebox{0.5\linewidth}{!}{
-        \begin{tikzpicture}[
-            node distance=0.3cm, % Réduction légère de l'espace entre blocs
-            every node/.style={font=\tiny, thick},
-            res/.style={draw, rectangle, fill=blue!10, minimum width=2.5cm, minimum height=0.4cm},
-            att/.style={draw, rectangle, fill=red!10, minimum width=2.5cm, minimum height=0.4cm},
-            down/.style={draw, rectangle, fill=gray!20, minimum width=2.5cm},
-            up/.style={draw, rectangle, fill=orange!20, minimum width=2.5cm},
-            time/.style={inner sep=2pt, font=\tiny\bfseries, color=blue!70!black}
-        ]
-
-            % --- ENCODER ---
-            \node[draw, fill=green!5] (in) {Entrée $x_t$};
-            \node[res, below=0.2cm of in] (e1) {2x ResNet};
-            \node[down, below=of e1] (d1) {DownSample};
-            
-            \node[att, below=0.4cm of d1] (e2) {2x ResNet + \textbf{Attn}};
-            \node[down, below=of e2] (d2) {DownSample};
-            
-            \node[res, below=0.4cm of d2] (e3) {2x ResNet};
-            \node[down, below=of e3] (d3) {DownSample};
-            
-            \node[res, below=0.4cm of d3] (e4) {2x ResNet};
-
-            % --- MIDDLE (Bottleneck) ---
-            \node[att, below=0.8cm of e4, xshift=2.25cm, text width=3cm, align=center, fill=purple!10] (mid) {
-                \textbf{Bottleneck}\\ResNet $\to$ \textbf{Attn} $\to$ ResNet
-            };
-
-            % --- DECODER ---
-            \node[res, right=2cm of e4] (u4) {3x ResNet};
-            
-            \node[up, above=0.4cm of u4] (up3) {UpSample};
-            \node[res, above=of up3] (u3) {3x ResNet};
-            
-            \node[up, above=0.4cm of u3] (up2) {UpSample};
-            \node[att, above=of up2] (u2) {3x ResNet + Attention};
-            
-            \node[up, above=0.4cm of u2] (up1) {UpSample};
-            \node[res, above=of up1] (u1) {3x ResNet};
-            
-            \node[draw, fill=green!5, above=0.2cm of u1] (out) {Sortie $\epsilon_\theta(x_t, t)$};
-
-            % --- INJECTION DU TEMPS (t) ---
-            % Encodeur
-            \foreach \n in {e1, e2, e3, e4} {
-                \node (t_\n) [left=0.4cm of \n, time] {$t$};
-                \draw[->, blue!50, thin] (t_\n) -- (\n);
-            }
-            % Middle
-            \node (t_mid) [below=0.2cm of mid, time] {$t$};
-            \draw[->, blue!50, thin] (t_mid) -- (mid);
-            
-            % Décodeur
-            \foreach \n in {u1, u2, u3, u4} {
-                \node (t_\n) [right=0.4cm of \n, time] {$t$};
-                \draw[->, blue!50, thin] (t_\n) -- (\n);
-            }
-
-            % --- SKIP CONNECTIONS ---
-            \draw[dashed, red, ->] (e1.east) -- node[above, font=\tiny, color=black, pos=0.5] {cat} (u1.west);
-            \draw[dashed, red, ->] (e2.east) -- (u2.west);
-            \draw[dashed, red, ->] (e3.east) -- (u3.west);
-            \draw[dashed, red, ->] (e4.east) -- (u4.west);
-
-            % --- FLUX PRINCIPAL ---
-            \draw[->] (in) -- (e1); \draw[->] (e1) -- (d1); \draw[->] (d1) -- (e2); \draw[->] (e2) -- (d2);
-            \draw[->] (d2) -- (e3); \draw[->] (e3) -- (d3); \draw[->] (d3) -- (e4); 
-            \draw[->] (e4.south) -- ++(0,-1.26) -- (mid.west);
-            \draw[->] (mid.east) -- ++(0.66,0) -- (u4.south);
-            \draw[->] (u4) -- (up3); \draw[->] (up3) -- (u3); \draw[->] (u3) -- (up2);
-            \draw[->] (up2) -- (u2); \draw[->] (u2) -- (up1); \draw[->] (up1) -- (u1); \draw[->] (u1) -- (out);
-            
-        \end{tikzpicture}%
-    }
-    \caption{Architecture détaillée du U-Net avec injection du Time Embedding ($t$) dans les blocs ResNet.}
-    \label{fig:unet}
-\end{figure}
-
-Nous pouvons observer que le modèle prend en entrée une image bruitée $x_t$, et qu'à chaque étape du processus de diffusion, il reçoit également le pas de temps $t$, correspondant à l'étape actuelle du processus de diffusion, injecté dans les différents blocks de ResNet du modèle.\\
+L'architecture complète du U-Net utilisé dans les modèles de diffusion est présentée en annexe \ref{annexe:cfg_resnet_architecture}, figure \ref{fig:unet}.\\
 
 \subsubsection{Encodage du Pas de Temps}
 

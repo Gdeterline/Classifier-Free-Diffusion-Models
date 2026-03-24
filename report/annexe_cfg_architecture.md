@@ -2,6 +2,94 @@
 \label{annexe:cfg_resnet_architecture}
 \rhead{Architectures détaillées}
 
+\section{Architecture générale du U-Net pour DDPM}
+
+La figure \ref{fig:unet} illustre l'architecture générale du U-Net considéré. 
+
+\begin{figure}[htbp]
+    \centering
+% On passe à 70% de la largeur du texte pour une taille plus raisonnable
+    \resizebox{0.5\linewidth}{!}{
+        \begin{tikzpicture}[
+            node distance=0.3cm, % Réduction légère de l'espace entre blocs
+            every node/.style={font=\tiny, thick},
+            res/.style={draw, rectangle, fill=blue!10, minimum width=2.5cm, minimum height=0.4cm},
+            att/.style={draw, rectangle, fill=red!10, minimum width=2.5cm, minimum height=0.4cm},
+            down/.style={draw, rectangle, fill=gray!20, minimum width=2.5cm},
+            up/.style={draw, rectangle, fill=orange!20, minimum width=2.5cm},
+            time/.style={inner sep=2pt, font=\tiny\bfseries, color=blue!70!black}
+        ]
+
+            % --- ENCODER ---
+            \node[draw, fill=green!5] (in) {Entrée $x_t$};
+            \node[res, below=0.2cm of in] (e1) {2x ResNet};
+            \node[down, below=of e1] (d1) {DownSample};
+            
+            \node[att, below=0.4cm of d1] (e2) {2x ResNet + \textbf{Attn}};
+            \node[down, below=of e2] (d2) {DownSample};
+            
+            \node[res, below=0.4cm of d2] (e3) {2x ResNet};
+            \node[down, below=of e3] (d3) {DownSample};
+            
+            \node[res, below=0.4cm of d3] (e4) {2x ResNet};
+
+            % --- MIDDLE (Bottleneck) ---
+            \node[att, below=0.8cm of e4, xshift=2.25cm, text width=3cm, align=center, fill=purple!10] (mid) {
+                \textbf{Bottleneck}\\ResNet $\to$ \textbf{Attn} $\to$ ResNet
+            };
+
+            % --- DECODER ---
+            \node[res, right=2cm of e4] (u4) {3x ResNet};
+            
+            \node[up, above=0.4cm of u4] (up3) {UpSample};
+            \node[res, above=of up3] (u3) {3x ResNet};
+            
+            \node[up, above=0.4cm of u3] (up2) {UpSample};
+            \node[att, above=of up2] (u2) {3x ResNet + Attention};
+            
+            \node[up, above=0.4cm of u2] (up1) {UpSample};
+            \node[res, above=of up1] (u1) {3x ResNet};
+            
+            \node[draw, fill=green!5, above=0.2cm of u1] (out) {Sortie $\epsilon_\theta(x_t, t)$};
+
+            % --- INJECTION DU TEMPS (t) ---
+            % Encodeur
+            \foreach \n in {e1, e2, e3, e4} {
+                \node (t_\n) [left=0.4cm of \n, time] {$t$};
+                \draw[->, blue!50, thin] (t_\n) -- (\n);
+            }
+            % Middle
+            \node (t_mid) [below=0.2cm of mid, time] {$t$};
+            \draw[->, blue!50, thin] (t_mid) -- (mid);
+            
+            % Décodeur
+            \foreach \n in {u1, u2, u3, u4} {
+                \node (t_\n) [right=0.4cm of \n, time] {$t$};
+                \draw[->, blue!50, thin] (t_\n) -- (\n);
+            }
+
+            % --- SKIP CONNECTIONS ---
+            \draw[dashed, red, ->] (e1.east) -- node[above, font=\tiny, color=black, pos=0.5] {cat} (u1.west);
+            \draw[dashed, red, ->] (e2.east) -- (u2.west);
+            \draw[dashed, red, ->] (e3.east) -- (u3.west);
+            \draw[dashed, red, ->] (e4.east) -- (u4.west);
+
+            % --- FLUX PRINCIPAL ---
+            \draw[->] (in) -- (e1); \draw[->] (e1) -- (d1); \draw[->] (d1) -- (e2); \draw[->] (e2) -- (d2);
+            \draw[->] (d2) -- (e3); \draw[->] (e3) -- (d3); \draw[->] (d3) -- (e4); 
+            \draw[->] (e4.south) -- ++(0,-1.26) -- (mid.west);
+            \draw[->] (mid.east) -- ++(0.66,0) -- (u4.south);
+            \draw[->] (u4) -- (up3); \draw[->] (up3) -- (u3); \draw[->] (u3) -- (up2);
+            \draw[->] (up2) -- (u2); \draw[->] (u2) -- (up1); \draw[->] (up1) -- (u1); \draw[->] (u1) -- (out);
+            
+        \end{tikzpicture}%
+    }
+    \caption{Architecture détaillée du U-Net avec injection du Time Embedding ($t$) dans les blocs ResNet.}
+    \label{fig:unet}
+\end{figure}
+
+\newpage
+
 \section{Architecture d'un Block de ResNet non conditionnel - DDPM}
 
 La figure \ref{fig:resnet_block_ddpm} illustre l'architecture d'un block de ResNet non conditionnel, pour un DDPM. Nous avons les composantes classiques d'un block de ResNet (convolutions, normalisation, activation), mais avec la notion d'injection du pas de temps $t$ pour moduler les canaux de l'image, ce qui permet au même modèle de gérer les différentes étapes du processus de diffusion.\\
