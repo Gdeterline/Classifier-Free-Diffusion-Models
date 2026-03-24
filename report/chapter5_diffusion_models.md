@@ -323,74 +323,16 @@ Le modèle de diffusion est alors capable d'apprendre à ajuster sa prédiction 
 
 L'architecture complète d'un block de ResNet conditionnel pour un DDPM avec Classifier-Free Guidance est présentée en annexe \ref{annexe:cfg_resnet_architecture}, figure \ref{fig:resnet_block_ddpm}.\\
 
-\subsubsection{Attention Blocks}
+\subsubsection{Blocks d'Attention}
 
 Si nous nous référons à la figure \ref{fig:unet}, nous pouvons observer qu'en plus des blocks de ResNet, le modèle de diffusion intègre également des blocks d'Attention à certains endroits stratégiques de l'architecture (notamment dans les étapes intermédiaires du U-Net). Ces blocks d'Attention permettent au modèle de diffusion de capturer les dépendances à long terme dans l'image, ce qui est crucial pour générer des images cohérentes et de haute qualité.\\
 
-La figure \ref{fig:single_head_attn_text} illustre un block d'Attention typique utilisé dans le modèle de diffusion.\\
+Les blocs d'Attention utilisés dans les modèles de diffusion sont basés sur ceux proposés par \textit{Vaswani et al.} dans leur article "Attention is All You Need" \cite{Vaswani2017}, mais adaptés pour fonctionner dans le contexte de la génération d'images. Ces blocks d'Attention permettent au modèle de diffusion de se concentrer sur différentes parties de l'image à chaque étape du processus de génération, ce qui améliore la qualité des images générées.
+Notons que l'architecture du modèle de diffusion ne contient qu'un nombre restreint de blocs d'Attention. Ceux-ci ne sont pas placés aux étapes les plus proches de l'entrée ou de la sortie du U-Net, mais plutôt dans les couches intermédiaires et le \textit{bottleneck}, afin de capturer les dépendances à long terme sans augmenter démesurément la complexité du modèle.\\
 
-\begin{figure}[htbp]
-    \centering
-    % --- Bloc de Gauche : Le Schéma TikZ ---
-    \begin{minipage}{0.4\textwidth}
-        \centering
-        \resizebox{\linewidth}{!}{
-            \begin{tikzpicture}[
-                node distance=0.5cm,
-                every node/.style={font=\tiny, thick},
-                input/.style={draw, rectangle, fill=green!5, minimum width=1.5cm, minimum height=0.4cm},
-                block/.style={draw, rectangle, fill=blue!10, minimum width=3cm, minimum height=0.5cm, align=center},
-                op/.style={draw, circle, fill=orange!20, inner sep=1pt, minimum size=0.5cm},
-                annot/.style={font=\tiny\itshape, color=gray}
-            ]
-                % --- ENTRÉES ---
-                \node[input] (k) {Key ($K$)};
-                \node[input, left=1cm of k] (q) {Query ($Q$)};
-                \node[input, right=1cm of k] (v) {Value ($V$)};
-                \node[annot, above=0.2cm of k] {Dimensions : $(L, d_k)$};
-    
-                % --- CALCUL DU SCORE ---
-                \node[op, below=0.8cm of k] (dot1) {$\times$};
-                \node[right=0.02cm of dot1, font=\tiny\bfseries] {Produit Scalaire};
-                
-                \draw[->] (q) -- (dot1) node[pos=0.4, left] {$Q$};
-                \draw[->] (k) -- (dot1) node[pos=0.4, right] {$K$};
-    
-                % --- NORMALISATION ---
-                \node[block, below=0.5cm of dot1] (scale) {Scaling ($1/\sqrt{d_k}$)};
-                \node[block, below=0.5cm of scale] (soft) {Softmax};
-                
-                \draw[->] (dot1) -- (scale);
-                \draw[->] (scale) -- (soft);
-    
-                % --- APPLICATION SUR V ---
-                \node[op, below=1.2cm of soft] (dot2) {$\times$};
-                \node[right=0.2cm of dot2, yshift=-0.3cm, font=\tiny\bfseries] {Somme pondérée};        
-                
-                \draw[->] (soft) -- (dot2) node[pos=0.5, left] {Scores $\alpha$};
-                \draw[->] (v) |- (dot2) node[pos=0.7, above] {$V$};
-    
-                % --- SORTIE ---
-                \node[input, below=0.7cm of dot2] (out) {Attention Out};
-                \draw[->] (dot2) -- (out);
-            \end{tikzpicture}
-        }
-    \end{minipage}
-    \hfill % Espace élastique entre les deux blocs
-    % --- Bloc de Droite : Le Texte ---
-    \begin{minipage}{0.45\textwidth}
-        \small % Taille de police légèrement réduite pour le bloc de texte
-        Ces blocs d'Attention sont basés sur le mécanisme de \textit{Multi-Head Attention}. Ils permettent au modèle de diffusion de se concentrer sur différentes parties de l'image à chaque étape du processus, améliorant ainsi la cohérence globale. 
-        
-        Notons que l'architecture ne contient qu'un nombre restreint de blocs d'Attention. Ceux-ci ne sont pas placés aux étapes les plus proches de l'entrée ou de la sortie du U-Net, mais plutôt dans les couches intermédiaires et le \textit{bottleneck}, afin de capturer les dépendances à long terme sans augmenter démesurément la complexité du modèle.
-    \end{minipage}
+L'architecture complète d'un block d'Attention pour un DDPM avec Classifier-Free Guidance est présentée en annexe \ref{annexe:cfg_resnet_architecture}, figure \ref{fig:attention_block}.\\
 
-    \vspace{0.3cm}
-    \caption{Mécanisme d'attention intégré à l'architecture du DDPM.}
-    \label{fig:single_head_attn_text}
-\end{figure}
-
-Ayant présenté les composants clés de l'architecture d'un DDPM, nous pouvons désormais détailler les algorithmes d'entraînement et d'inférence associés à ce modèle.
+Ayant présenté les composants clés de l'architecture d'un DDPM, nous pouvons désormais présenter les algorithmes d'entraînement et d'inférence associés à ce modèle.
 
 \subsection{Algorithmes : Entraînement et Inférence}
 

@@ -68,7 +68,60 @@ Notons plusieurs aspects importants concernant l'architecture du block de ResNet
     \item Le dropout présent dans la deuxième partie du block de ResNet permet de régulariser le modèle et n'a pas d'influence sur la classe des images générées.
 \end{itemize}
 
+\newpage
 
+\section{Architecture d'un block d'Attention - DDPM}
+
+La figure \ref{fig:attention_block} illustre l'architecture d'un block d'Attention pour un DDPM, qui est utilisé pour capturer les dépendances à long terme dans les images. Nous avons les composantes classiques d'un block d'Attention (Q, K, V, produit scalaire, softmax).
+
+\begin{figure}[htbp]
+\centering
+    \resizebox{!}{0.3\paperheight}{
+                \begin{tikzpicture}[
+                    node distance=0.5cm,
+                    every node/.style={font=\tiny, thick},
+                    input/.style={draw, rectangle, fill=green!5, minimum width=1.5cm, minimum height=0.4cm},
+                    block/.style={draw, rectangle, fill=blue!10, minimum width=3cm, minimum height=0.5cm, align=center},
+                    op/.style={draw, circle, fill=orange!20, inner sep=1pt, minimum size=0.5cm},
+                    annot/.style={font=\tiny\itshape, color=gray}
+                ]
+                    % --- ENTRÉES ---
+                    \node[input] (k) {Key ($K$)};
+                    \node[input, left=1cm of k] (q) {Query ($Q$)};
+                    \node[input, right=1cm of k] (v) {Value ($V$)};
+                    \node[annot, above=0.2cm of k] {Dimensions : $(L, d_k)$};
+        
+                    % --- CALCUL DU SCORE ---
+                    \node[op, below=0.8cm of k] (dot1) {$\times$};
+                    \node[right=0.02cm of dot1, font=\tiny\bfseries] {Produit Scalaire};
+                    
+                    \draw[->] (q) -- (dot1) node[pos=0.4, left] {$Q$};
+                    \draw[->] (k) -- (dot1) node[pos=0.4, right] {$K$};
+        
+                    % --- NORMALISATION ---
+                    \node[block, below=0.5cm of dot1] (scale) {Scaling ($1/\sqrt{d_k}$)};
+                    \node[block, below=0.5cm of scale] (soft) {Softmax};
+                    
+                    \draw[->] (dot1) -- (scale);
+                    \draw[->] (scale) -- (soft);
+        
+                    % --- APPLICATION SUR V ---
+                    \node[op, below=1.2cm of soft] (dot2) {$\times$};
+                    \node[right=0.2cm of dot2, yshift=-0.3cm, font=\tiny\bfseries] {Somme pondérée};        
+                    
+                    \draw[->] (soft) -- (dot2) node[pos=0.5, left] {Scores $\alpha$};
+                    \draw[->] (v) |- (dot2) node[pos=0.7, above] {$V$};
+        
+                    % --- SORTIE ---
+                    \node[input, below=0.7cm of dot2] (out) {Attention Out};
+                    \draw[->] (dot2) -- (out);
+                \end{tikzpicture}
+            }
+    \caption{Architecture d'un block d'Attention pour un DDPM.}
+    \label{fig:attention_block}
+\end{figure}
+
+\newpage
 
 \section{Architecture d'un Block de ResNet Conditionnel - Classifier-Free Guidance}
 
@@ -133,4 +186,3 @@ La figure \ref{fig:resnet_block_cfg} illustre l'architecture d'un block de ResNe
     \caption{Architecture d'un block de ResNet conditionnel pour un DDPM avec Classifier-Free Guidance.}
     \label{fig:resnet_block_cfg}
 \end{figure}
-
