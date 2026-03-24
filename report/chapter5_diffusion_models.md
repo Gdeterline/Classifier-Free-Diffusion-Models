@@ -192,7 +192,7 @@ Dans cette section, nous présentons une architecture de DDPM standard, issue de
 
 Tout d'abord, le modèle de diffusion est basé sur une architecture de type U-Net, qui est largement utilisée dans les tâches de segmentation d'images et de génération. Le U-Net se compose d'un encodeur et d'un décodeur, avec des connexions de saut (skip connections) entre les couches correspondantes de l'encodeur et du décodeur afin de préserver les détails spatiaux de l'image tout au long du processus de génération.\\
 
-La figure \ref{fig:unet} illustre l'architecture générale du U-Net considéré.
+La figure \ref{fig:unet} illustre l'architecture générale du U-Net considéré. 
 
 \begin{figure}[htbp]
     \centering
