@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def compute_mean_image(mnist_class: int) -> torch.Tensor:
+def compute_mean_image(mnist_class: int, increase: float) -> torch.Tensor:
     """
     Compute the mean image of a given class in the MNIST dataset.
 
@@ -31,10 +31,34 @@ def compute_mean_image(mnist_class: int) -> torch.Tensor:
 
     # Compute the mean image of the class
     mean_image = torch.mean(class_images, dim=0)
-
+    
+    if increase > 0:
+        mean_image = torch.sigmoid(increase * (mean_image - 0.5))
+        
     return mean_image
 
-def plot_mean_images(save: bool = False) -> None:
+def plot_mean_image(mnist_class: int, increase: float = 0, save: bool = False) -> None:
+    """
+    Plot the mean image of a given class in the MNIST dataset.
+
+    Parameters
+    ----------
+    mnist_class : int
+        The class for which to plot the mean image.
+    increase : float
+        The amount by which to increase the mean image values. Default is 0.
+    save : bool
+        Whether to save the plot as an image file. Default is False.
+    """
+    mean_image = compute_mean_image(mnist_class, increase=increase)
+    plt.imshow(mean_image.squeeze())
+    plt.title(f"Mean Image of Class {mnist_class}")
+    plt.axis("off")
+    if save:
+        plt.savefig(f"report/images/mnist_mean_image_class_{mnist_class}.png")
+    plt.show()
+
+def plot_mean_images_grid(save: bool = False) -> None:
     """
     Plot the mean images of all classes in the MNIST dataset, in a 2x5 grid.
     """
@@ -50,4 +74,6 @@ def plot_mean_images(save: bool = False) -> None:
     plt.show()
     
 if __name__ == "__main__":
-    plot_mean_images(save=True)
+    digits = [2, 4, 5, 6]
+    for digit in digits:
+        plot_mean_image(digit, increase=2, save=True)
