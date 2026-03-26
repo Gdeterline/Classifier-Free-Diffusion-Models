@@ -50,7 +50,7 @@ def plot_image_grid(dataset: str = 'mnist', num_row: int = 10, num_col: int = 10
         ax.imshow(image)
     #plt.suptitle(f"Example of Images from the Dataset {tdataset.__class__.__name__}")
     if save:
-        plt.savefig(f"report/images/{tdataset.__class__.__name__}_image_grid.png")
+        plt.savefig(f"../report/images/{tdataset.__class__.__name__}_image_grid.png")
     plt.show()
 
 def plot_class_distribution(dataset: str = 'mnist', save: bool = False) -> None:
@@ -72,7 +72,7 @@ def plot_class_distribution(dataset: str = 'mnist', save: bool = False) -> None:
     plt.xticks(unique_labels)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     if save:
-        plt.savefig(f"report/images/{tdataset.__class__.__name__}_class_distribution.png")
+        plt.savefig(f"../report/images/{tdataset.__class__.__name__}_class_distribution.png")
     plt.show()
     
     
