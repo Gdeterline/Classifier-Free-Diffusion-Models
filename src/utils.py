@@ -24,6 +24,8 @@ def dataset_loader(dataset_name: str = "MNIST", batch_size: int = 128) -> torch.
     DataLoader:
         A DataLoader object containing the loaded dataset.
     """
+    if batch_size <= 0:
+        batch_size = len(datasets.MNIST("./data", train=True, download=True))
     
     # Check if the dataset is available in torchvision.datasets
     if dataset_name not in ["MNIST", "CIFAR10", "CIFAR100"]:
