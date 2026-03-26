@@ -9,7 +9,6 @@ from utils import dataset_loader
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 def compute_mean_image(mnist_class: int, increase: float) -> torch.Tensor:
     """
     Compute the mean image of a given class in the MNIST dataset.
